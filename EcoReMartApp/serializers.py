@@ -1,10 +1,16 @@
+from itertools import product
+
+from cloudinary.utils import cloudinary_url
+from django.contrib.admin.templatetags.admin_list import pagination
 from django.template.context_processors import request
 from rest_framework import serializers
+from EcoReMartApp.location import is_valid_address
 from EcoReMartApp.models import *
-
-
-
+from EcoReMartApp.paginators import ProductPaginator
+from EcoReMart import settings
 class UserSerializer(serializers.ModelSerializer):
+    avatar = serializers.SerializerMethodField()
+    store= serializers.SerializerMethodField()
     def create(self, validated_data):
         password = validated_data.pop("password", None)
         user = User(**validated_data)
@@ -12,34 +18,69 @@ class UserSerializer(serializers.ModelSerializer):
             user.set_password(password)
         user.save()
         return user
+
     class Meta:
         model = User
-        fields = ['id','email','password','first_name', 'last_name','phone_number','avatar']
+        fields = ['id','email','password','first_name', 'last_name','phone_number','avatar','store']
         extra_kwargs = {
             'password': {
                 'write_only': True,
             }
         }
 
+    def get_avatar(self, obj):
+        if obj.avatar:
+            url, options = cloudinary_url(obj.avatar.url)
+            return url
+    def get_store(self, obj):
+        try:
+            store = obj.store  # Nếu không có store, dòng này sẽ raise exception
+            return {
+                "id": store.id,
+                "name": store.name,
+                "avatar": store.avatar.url if store.avatar else None
+            }
+        except Store.DoesNotExist:
+            return None
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
-        fields = '__all__'
+        fields = ('id','name')
+
+class CategoryInProductSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ['id','name']
 
 class ProductSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
+    store = serializers.SerializerMethodField()
     class Meta:
         model = Product
-        fields = ['id','name','available_quantity','price','image']
-    def get_image(self,obj):
+        fields = ['id','name','available_quantity','price','image','store', 'purchases','active']
+        extra_kwargs = {
+            'active': {
+                'read_only': True,
+            },
+        }
+
+    def get_image(self, obj):
         first_image = obj.images.first()
         if first_image and first_image.image:
-            request = self.context.get('request')
-            image_url = first_image.image.url
-            if request is not None:
-                return request.build_absolute_uri(f'/static{image_url}')
-            return image_url
+            url, options = cloudinary_url(first_image.image.url)
+            return url
         return None
+
+    def get_store(self, obj):
+        store = obj.store
+        avatar_url = None
+        if store.avatar:
+            avatar_url, _ = cloudinary_url(str(store.avatar))
+        return {
+            "id": store.id,
+            "name": store.name,
+            "avatar": avatar_url
+        }
 
 class ProductImageSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
@@ -48,10 +89,9 @@ class ProductImageSerializer(serializers.ModelSerializer):
         fields = ['id', 'image', 'uploaded_at']
 
     def get_image(self, obj):
-        request = self.context.get('request')
-        if request and obj.image:
-            image_url = request.build_absolute_uri(f'/static{obj.image.url}')
-            return image_url
+        if obj.image:
+            url, options = cloudinary_url(obj.image.url)
+            return url
 
 class ProductConditionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -60,7 +100,7 @@ class ProductConditionSerializer(serializers.ModelSerializer):
 
 class ProductDetailSerializer(ProductSerializer):
     images = ProductImageSerializer(many=True, read_only=True)
-    categories = CategorySerializer(many=True, read_only=True)
+    categories = CategoryInProductSerializer(many=True, read_only=True)
     conditions = ProductConditionSerializer(read_only=True)
     comments_count = serializers.SerializerMethodField()
     def get_comments_count(self,obj):
@@ -68,7 +108,14 @@ class ProductDetailSerializer(ProductSerializer):
     class Meta:
         model = ProductSerializer.Meta.model
         fields = list(ProductSerializer.Meta.fields) + ['categories','images','note','conditions','comments_count']
-
+    extra_kwargs = {
+        'store': {
+            'read_only': True,
+        },
+        'id': {
+            'read_only': True,
+        }
+    }
 
 class CommentImageSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
@@ -77,10 +124,9 @@ class CommentImageSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_image(self, obj):
-        request = self.context.get('request')
-        if request and obj.image:
-            image_url = request.build_absolute_uri(f'/static{obj.image.url}')
-            return image_url
+        if obj.image:
+            url, options = cloudinary_url(obj.image.url)
+            return url
 
 class CommentSerializer(serializers.ModelSerializer):
     images=CommentImageSerializer(many=True, read_only=True)
@@ -88,14 +134,85 @@ class CommentSerializer(serializers.ModelSerializer):
         req=super().to_representation(comment)
         avatar_url = None
         if comment.user.avatar and hasattr(comment.user.avatar, 'url'):
-            request = self.context.get('request')
-            avatar_url = request.build_absolute_uri(f'/static{comment.user.avatar.url}') if request else comment.user.avatar.url
+            avatar_url = comment.user.avatar.url
 
         req['user']={
-            'username':comment.user.username,
+            'name': f"{comment.user.first_name} {comment.user.last_name}".strip(),
             'avatar':avatar_url,
         }
         return req
     class Meta:
         model = Comment
         fields = ['id','user', 'content','created_date','images']
+class StoreSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Store
+        fields = ('id','name','address','avatar')
+        extra_kwargs = {
+            'id': {
+                'read_only': True,
+            }
+        }
+
+class StoreDetailSerializer(StoreSerializer):
+    class Meta:
+        model = StoreSerializer.Meta.model
+        fields = list(StoreSerializer.Meta.fields) + ['phone_number','introduce','user','created_date']
+        extra_kwargs = {
+            'user': {
+                'read_only': True,
+            },
+            'created_date': {
+                'read_only': True,
+            },
+
+        }
+    def validate_phone_number(self, value):
+        if not value.startswith('0'):
+            raise serializers.ValidationError("Số điện thoại phải bắt đầu bằng số 0.")
+        if not value.isdigit():
+            raise serializers.ValidationError("Số điện thoại chỉ được chứa chữ số.")
+        if len(value) != 10:
+            raise serializers.ValidationError("Số điện thoại phải gồm đúng 10 chữ số.")
+        return value
+
+    def validate_address(self, value):
+        api_key = settings.MAPBOX_API_KEY
+        if not is_valid_address(value, api_key):
+            raise serializers.ValidationError("Địa chỉ không tồn tại hoặc không hợp lệ.")
+        return value
+class CartItemsSerializer(serializers.ModelSerializer):
+    product = ProductSerializer()
+    class Meta:
+        model = CartItem
+        fields = ['product', 'quantity', 'updated_at']
+class OrderItemInputSerializer(serializers.Serializer):
+    product = ProductSerializer(read_only=True)
+    quantity = serializers.IntegerField(min_value=1)
+    class Meta:
+        model = OrderItem
+        fields = ['id', 'product', 'quantity']
+
+class DeliveryInformationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DeliveryInformation
+        fields = '__all__'
+class OrderSerializer(serializers.ModelSerializer):
+    items = serializers.SerializerMethodField()
+    store_name = serializers.CharField(source='store.name', read_only=True)
+    voucher_code = serializers.CharField(source='voucher.code', read_only=True)
+    order_status=serializers.CharField(source='order_status.status_name', read_only=True)
+    delivery_info=DeliveryInformationSerializer(read_only=True)
+    class Meta:
+        model = Order
+        fields = ['id','user','delivery_info','order_code', 'store', 'store_name', 'voucher', 'voucher_code',
+                  'order_status', 'note','ship_fee', 'total_cost', 'created_at', 'items']
+
+    def get_items(self, obj):
+        order_items = OrderItem.objects.filter(order=obj)
+        return OrderItemInputSerializer(order_items, many=True).data
+
+class OrderStatusUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Order
+        fields = ['order_status']

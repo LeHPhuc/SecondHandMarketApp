@@ -66,7 +66,7 @@ cloudinary.config(
   api_key = env("CLOUDINARY_API_KEY"),
   api_secret = env("CLOUDINARY_API_SECRET")
 )
-
+MAPBOX_API_KEY = env("MAPBOX_API_KEY")
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -89,6 +89,10 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 CORS_ALLOWED_ALL_ORIGINS = True
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
 ROOT_URLCONF = 'EcoReMart.urls'
 
 TEMPLATES = [

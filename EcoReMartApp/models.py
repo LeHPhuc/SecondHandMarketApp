@@ -1,3 +1,4 @@
+from cloudinary.models import CloudinaryField
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
@@ -5,16 +6,17 @@ from decimal import Decimal
 import uuid
 from django.utils.timezone import now
 class User(AbstractUser):
-    ROLE_CHOICES = (
-        ('ADMIN', 'Người quản trị'),
-        ('CUSTOMER', 'Khách hàng'),
-    )
+    ROLE_CHOICES = [
+        ('admin', 'Admin'),
+        ('customer', 'Customer'),
+    ]
     uid = models.CharField(max_length=128, unique=True,null=True,blank=True)
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='CUSTOMER')
+    role = models.CharField(max_length=20,choices=ROLE_CHOICES, default='customer')
     email = models.EmailField(unique=True)
     password = models.CharField(max_length=128)
     phone_number = models.CharField(max_length=15, blank=True, null=True)
-    avatar = models.ImageField(upload_to='EcoReMartAppAvt/', blank=True, null=True)
+    payment_account = models.CharField(max_length=255, blank=True, null=True)
+    avatar = CloudinaryField('avatar', blank=True, null=True)
     username = models.CharField(max_length=128, unique=True, null=True,blank=True)
     @property
     def is_admin(self):
@@ -52,9 +54,12 @@ class Store(models.Model):
     phone_number = models.CharField(max_length=10)
     introduce = models.CharField(max_length=150)
     address = models.CharField(max_length=100)
-    avatar = models.ImageField(upload_to='EcoReMartAppAvt/', blank=True, null=True)
+    avatar = CloudinaryField('avatar', blank=True, null=True)
     created_date = models.DateTimeField(auto_now_add=True)
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='store')
+    bank_name = models.CharField(max_length=255, null=True, blank=True)
+    bank_account_name = models.CharField(max_length=255, null=True, blank=True)
+    bank_account_number = models.CharField(max_length=100, null=True, blank=True)
 
     @property
     def owner(self):
@@ -112,7 +117,7 @@ class ProductCategory(models.Model):
 
 class ProductImage(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='images')
-    image = models.ImageField(upload_to='product_images/')
+    image = CloudinaryField('image', blank=True, null=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -125,35 +130,29 @@ class OrderStatus(models.Model):
         return self.status_name
 
 
+
 class Order(models.Model):
+    PaymentMethod_CHOICES = [
+        ('cash payment', 'Thanh toán tiền mặt'),
+        ('online payment', 'Thanh Toán Online'),
+    ]
     order_code = models.CharField(max_length=20, unique=True, blank=True)
     order_date = models.DateTimeField(auto_now_add=True)
+    ship_fee=models.DecimalField(max_digits=12,decimal_places=2, default=0)
     total_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     note = models.CharField(max_length=45, null=True, blank=True)
+    payment_method=models.CharField(max_length=20, choices=PaymentMethod_CHOICES, default='cash payment')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='orders')
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='orders')
     order_status = models.ForeignKey(OrderStatus, on_delete=models.SET_NULL, null=True)
     products = models.ManyToManyField(Product,through='OrderItem')
     voucher = models.ForeignKey('Voucher', on_delete=models.SET_NULL, null=True, blank=True, related_name='orders')
-
-
-    # def calculate_total(self):
-    #     total = sum(
-    #         item.product.price * item.quantity
-    #         for item in self.order_items.all()
-    #     )
-    #     if self.voucher and self.voucher.discount_percent:
-    #         total -= total * (self.voucher.discount_percent / 100)
-    #     return round(total, 2)
-
-    # def save(self, *args, **kwargs):
-    #     is_new = self.pk is None  # Kiểm tra đây là đơn hàng mới
-    #     if not self.order_code:
-    #         self.order_code = self.generate_order_code()
-    #     super().save(*args, **kwargs)  # Lưu lần đầu để có self.pk
-    #     if is_new:
-    #         self.total_cost = self.calculate_total()
-    #         super().save(update_fields=['total_cost'])  # Cập nhật total_cost
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_paid = models.BooleanField(default=False)
+    paid_at = models.DateTimeField(null=True, blank=True)
+    delivery_info = models.ForeignKey(
+        DeliveryInformation, on_delete=models.SET_NULL, null=True, blank=True, related_name='orders'
+    )
 
     def generate_order_code(self):
         from django.utils.timezone import now
@@ -179,6 +178,7 @@ class OrderItem(models.Model):
     quantity = models.IntegerField()
     def __str__(self):
         return f"{self.order.id} - {self.product.name} x {self.quantity}"
+
 class Cart(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='cart')
     products = models.ManyToManyField(Product, through='CartItem',)
@@ -190,6 +190,7 @@ class CartItem(models.Model):
     cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name='items')
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(default=1)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         unique_together = ('cart', 'product')
@@ -218,7 +219,7 @@ class Comment(models.Model):
 
 class CommentImage(models.Model):
     comment = models.ForeignKey(Comment, on_delete=models.CASCADE, related_name='images')
-    image = models.ImageField(upload_to='comment_images/')
+    image = CloudinaryField('image', blank=True, null=True)
     def __str__(self):
         return str(self.id)
 
@@ -239,7 +240,7 @@ class Voucher(models.Model):
 
     is_active = models.BooleanField(default=True, verbose_name="Đang hoạt động")
 
-    users_used = models.ManyToManyField(User, blank=True,related_name='vouchers_used')
+    order_used = models.ManyToManyField(Order, blank=True,related_name='vouchers_used')
 
     def __str__(self):
         return self.code or "(chưa có mã)"
@@ -261,3 +262,16 @@ class Voucher(models.Model):
                 self.start_date <= now <= self.expiry_date and
                 self.used_count < self.quantity
         )
+class Transaction(models.Model):
+    order = models.OneToOneField(Order, on_delete=models.CASCADE)
+    vnp_txn_ref = models.CharField(max_length=100)  # VNPay transaction code
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    pay_date = models.DateTimeField()
+    platform_fee = models.DecimalField(max_digits=10, decimal_places=2)
+    store_revenue = models.DecimalField(max_digits=10, decimal_places=2)
+class WithdrawalRequest(models.Model):
+    store = models.ForeignKey(Store, on_delete=models.CASCADE)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(max_length=20, choices=[("PENDING", "Pending"), ("PAID", "Paid"), ("REJECTED", "Rejected")])
+    created_at = models.DateTimeField(auto_now_add=True)
+    processed_at = models.DateTimeField(null=True, blank=True)

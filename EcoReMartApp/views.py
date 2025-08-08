@@ -1,6 +1,7 @@
 from email.policy import default
 from itertools import product
 
+from cloudinary.utils import cloudinary_url
 from django.http import HttpResponse
 from rest_framework import viewsets,permissions,generics,status
 from rest_framework.decorators import action
@@ -9,17 +10,22 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from EcoReMartApp.models import *
-from EcoReMartApp.permissions import IsAdmin, IsCustomerWithStore, IsOwner, IsOwnerOrAdmin
-from EcoReMartApp.serializers import CategorySerializer,ProductSerializer,ProductDetailSerializer,CommentSerializer,UserSerializer
+from EcoReMartApp.permissions import IsAdmin,  IsOwner, IsOwnerOrAdmin
+from EcoReMartApp.serializers import CategorySerializer, ProductSerializer, ProductDetailSerializer, CommentSerializer, \
+    UserSerializer, StoreSerializer, StoreDetailSerializer, CartItemsSerializer, OrderSerializer, \
+    OrderStatusUpdateSerializer
 from EcoReMartApp.paginators import ProductPaginator,CommentPaginator
-import cloudinary.uploader
 from firebase_admin import auth as firebase_auth
 import re
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from rest_framework.exceptions import ValidationError
+from collections import defaultdict
+from decimal import Decimal
+from EcoReMartApp.location import get_directions_distance,ship_fee_cost
+from EcoReMart import settings
 def index(request):
     return HttpResponse("Hello, world. You're at the polls index.")
-DEFAULT_AVATAR_URL = "https://res.cloudinary.com/dxouh8fmh/image/upload/v1753796806/store-icon_hu2tv9.webp"
+DEFAULT_AVATAR_URL = "https://res.cloudinary.com/dxouh8fmh/image/upload/v1754149807/avt_bvs35c.png"
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.filter(is_active=True)
     serializer_class = UserSerializer
@@ -46,8 +52,8 @@ class RegisterView(APIView):
         except Exception as e:
             return Response({"error": "Token không hợp lệ", "details": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
 
-        if not decoded_token.get("email_verified", False):
-            return Response({"error": "Email chưa được xác minh"}, status=status.HTTP_403_FORBIDDEN)
+        # if not decoded_token.get("email_verified", False):
+        #     return Response({"error": "Email chưa được xác minh"}, status=status.HTTP_403_FORBIDDEN)
         if not first_name:
             return Response({"error": "Thiếu First Name"}, status=status.HTTP_400_BAD_REQUEST)
         if not last_name:
@@ -62,30 +68,25 @@ class RegisterView(APIView):
         uid = decoded_token["uid"]
         email = decoded_token.get("email")
 
-        # Upload avatar nếu có
-        avatar_url = None
+        user = User.objects.filter(uid=uid).first()
+        if user:
+            return Response({"error": "Người dùng đã đăng ký rồi"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Tạo đối tượng user mới
+        user = User(
+            uid=uid,
+            email=email,
+            first_name=first_name or "",
+            last_name=last_name or "",
+            phone_number=phone_number,
+            role="customer"
+        )
+
+        # Gán avatar (CloudinaryField sẽ xử lý upload)
         if avatar_file:
-            try:
-                uploaded = cloudinary.uploader.upload(avatar_file)
-                avatar_url = uploaded.get("secure_url")
-                print("Avatar upload thành công:", avatar_url)
-            except Exception as e:
-                print("Lỗi upload Cloudinary:", str(e))
-                return Response({"error": "Upload thất bại", "details": str(e)}, status=500)
+            user.avatar = avatar_file
         else:
-            avatar_url = DEFAULT_AVATAR_URL
-        # Get or create user
-        user, created = User.objects.get_or_create(uid=uid)
-
-        # Update user info
-        user.email = email
-        user.first_name = first_name or ""
-        user.last_name = last_name or ""
-        user.phone_number = phone_number
-        user.avatar = avatar_url
-        user.role = "customer"
-
-
+            user.avatar = DEFAULT_AVATAR_URL  # URL string
         if password:
             user.set_password(password)
         try:
@@ -94,7 +95,7 @@ class RegisterView(APIView):
             return Response({"error": "Lưu người dùng thất bại", "details": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = self.serializer_class(user, context={'request': request})
-        return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+        return Response(serializer.data, status= status.HTTP_200_OK)
 
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
@@ -109,7 +110,8 @@ class LoginView(APIView):
             decoded_token = firebase_auth.verify_id_token(id_token)
         except Exception as e:
             return Response({"error": "Token không hợp lệ", "details": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
-
+        # if not decoded_token.get("email_verified", False):
+        #     return Response({"error": "Email chưa được xác minh"}, status=status.HTTP_403_FORBIDDEN)
         uid = decoded_token.get("uid")
         if not uid:
             return Response({"error": "Token không có uid"}, status=status.HTTP_401_UNAUTHORIZED)
@@ -130,10 +132,14 @@ class CurrentUserView(APIView):
         serializer = UserSerializer(user)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-class CategoryViewSet(viewsets.ViewSet, generics.ListAPIView):
+class CategoryViewSet(viewsets.ModelViewSet):
         queryset = Category.objects.all()
         serializer_class = CategorySerializer
-        @action(detail=True, methods=['get'], url_path='products', permission_classes=[permissions.AllowAny])
+        def get_permissions(self):
+            if self.action in ['list', 'get_products']:
+                return [permissions.AllowAny()]
+            return [IsAdmin()]
+        @action(detail=True, methods=['get'], url_path='products')
         def get_products(self, request, pk):
             products = self.get_object().products.filter(active=True).order_by('-created_date')
             p = ProductPaginator()
@@ -145,31 +151,32 @@ class CategoryViewSet(viewsets.ViewSet, generics.ListAPIView):
                 return Response(ProductSerializer(products, many=True).data, status=status.HTTP_200_OK)
 
 
-class ProductViewSet(viewsets.ModelViewSet):
+class ProductViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIView):
     queryset = Product.objects.prefetch_related('categories').filter(active=True)
-    # serializer_class = ProductDetailSerializer
     pagination_class = ProductPaginator
+
     def get_serializer_class(self):
-        if self.action == 'retrieve':
-            return ProductDetailSerializer  # GET /product/<id>/
-        return ProductSerializer  # GET /product/
+        if self.action == 'retrieve'or self.action in ['update_my_product']:
+            return ProductDetailSerializer
+        return ProductSerializer
 
     def get_queryset(self):
         query = self.queryset
         q=self.request.query_params.get('q')
+        category_id = self.request.query_params.get('category_id')
         if q:
             query=query.filter(name__icontains=q)
+        if category_id:
+            query = query.filter(categories__id=category_id)
         return query
 
     def get_permissions(self):
         if self.action.__eq__('get_comments') and self.request.method == 'POST':
             return [permissions.IsAuthenticated()]
-        if self.request.method in ['PUT', 'PATCH']:
-            return [permissions.IsAuthenticated(),IsCustomerWithStore(),IsOwner()]
-        if self.request.method in ['POST']:
-            return [permissions.IsAuthenticated(),IsCustomerWithStore()]
-        if self.request.method in ['DELETE']:
-            return [permissions.IsAuthenticated(), IsCustomerWithStore(), IsOwnerOrAdmin()]
+        if self.action in ['my_products', 'update_my_product', 'delete_my_product']:
+            return [permissions.IsAuthenticated()]
+        if self.action in ['update_my_product', 'delete_my_product']:
+            return [permissions.IsAuthenticated(),IsOwner()]
         return [permissions.AllowAny()]
 
     @action(detail=True, methods=['get','post'],url_path='comments')
@@ -182,6 +189,8 @@ class ProductViewSet(viewsets.ModelViewSet):
                 return Response({"error": "Thiếu content"}, status=status.HTTP_400_BAD_REQUEST)
             if not rating:
                 return Response({"error": "Thiếu rating"}, status=status.HTTP_400_BAD_REQUEST)
+            if Comment.objects.filter(product=product, user=request.user).exists():
+                return Response({"error": "Bạn đã đánh giá sản phẩm này rồi"}, status=status.HTTP_400_BAD_REQUEST)
             c = Comment.objects.create(content=content, product=product, rating=rating,
                                        user=request.user)
             images = request.FILES.getlist('images')
@@ -197,3 +206,434 @@ class ProductViewSet(viewsets.ModelViewSet):
                 return p.get_paginated_response(s.data)
             else:
                 return Response(CommentSerializer(comments, many=True).data, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['get'], url_path='my-products')
+    def my_products(self, request):
+        user_store = getattr(request.user, 'store', None)
+        if not user_store:
+            return Response({'error': 'User chưa có store'}, status=status.HTTP_400_BAD_REQUEST)
+        products = Product.objects.filter(store=user_store)
+        p = ProductPaginator()
+        page = p.paginate_queryset(products, request)
+        if page:
+            s = ProductSerializer(page, many=True, context={'request': request})
+            return p.get_paginated_response(s.data)
+        else:
+            serializer = ProductSerializer(products, many=True, context={'request': request})
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['get'], url_path='my-products')
+    def retrieve_my_product(self, request, pk=None):
+        user_store = getattr(request.user, 'store', None)
+        if not user_store:
+            return Response({'error': 'User chưa có store'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            product = Product.objects.get(pk=pk, store=user_store)
+        except Product.DoesNotExist:
+            return Response({'error': 'Không tìm thấy sản phẩm hoặc không thuộc store của bạn'}, status=404)
+
+        serializer = ProductDetailSerializer(product, context={'request': request})
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['put', 'patch'], url_path='update-my-product')
+    def update_my_product(self, request, pk=None):
+        user_store = getattr(request.user, 'store', None)
+        if not user_store:
+            return Response({'error': 'Bạn không có quyền chỉnh sửa sản phẩm này!'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            product = Product.objects.get(pk=pk, store=user_store)
+        except Product.DoesNotExist:
+            return Response({'error': 'Không tìm thấy sản phẩm hoặc không thuộc store của bạn'}, status=404)
+
+        # Cập nhật các trường cơ bản
+        serializer = ProductDetailSerializer(product, data=request.data, partial=(request.method == 'PATCH'),
+                                             context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        # Cập nhật categories (nếu có)
+        category_ids = request.data.getlist('categories') or request.data.get('categories', [])
+        if category_ids:
+            product.categories.set(category_ids)  # Thay thế toàn bộ danh sách
+
+        # Cập nhật images (nếu có)
+        images = request.FILES.getlist('images')
+        if images:
+            product.images.all().delete()
+            for img in images:
+                ProductImage.objects.create(product=product, image=img)
+
+        return Response(ProductDetailSerializer(product, context={'request': request}).data)
+
+    @action(detail=True, methods=['delete'], url_path='delete-my-product')
+    def delete_my_product(self, request, pk=None):
+        user_store = getattr(request.user, 'store', None)
+        if not user_store:
+            return Response({'error': 'Ba Không có quyền xoá sản phẩm này!'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            product = Product.objects.get(pk=pk, store=user_store)
+        except Product.DoesNotExist:
+            return Response({'error': 'Không tìm thấy sản phẩm hoặc không thuộc store của bạn'}, status=404)
+
+        product.delete()
+        return Response({'message': 'Đã xoá sản phẩm'}, status=status.HTTP_204_NO_CONTENT)
+
+
+class ProductCreateViewSet(viewsets.ViewSet, generics.CreateAPIView):
+    serializer_class = ProductDetailSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def create(self, request, *args, **kwargs):
+        name = request.data.get('name')
+        note = request.data.get('note')
+        available_quantity = request.data.get('available_quantity')
+        price = request.data.get('price')
+        product_condition_id = request.data.get('product_condition')
+        category_ids = request.data.getlist('categories')
+        image_files = request.FILES.getlist('images')
+
+        # Validate cửa hàng
+        try:
+            store = request.user.store
+        except Store.DoesNotExist:
+            return Response({'error': 'Người dùng chưa có cửa hàng'}, status=400)
+
+        # Validate dữ liệu
+        if not name:
+            return Response({'error': 'Thiếu name'}, status=400)
+        if not available_quantity:
+            return Response({'error': 'Thiếu available_quantity'}, status=400)
+        if not price:
+            return Response({'error': 'Thiếu price'}, status=400)
+        if not product_condition_id:
+            return Response({'error': 'Thiếu product_condition'}, status=400)
+        if not category_ids:
+            return Response({'error': 'Thiếu categories'}, status=400)
+        if not image_files:
+            return Response({'error': 'Thiếu images'}, status=400)
+
+        try:
+            # Lấy điều kiện sản phẩm
+            product_condition = ProductCondition.objects.get(id=product_condition_id)
+
+            # Ép kiểu
+            available_quantity = int(available_quantity)
+            price = float(price)
+
+            # Tạo sản phẩm
+            product = Product.objects.create(
+                name=name,
+                price=price,
+                available_quantity=available_quantity,
+                note=note,
+                store=store,
+                product_condition=product_condition
+            )
+
+            # Gán danh mục
+            for cat_id in category_ids:
+                ProductCategory.objects.create(product=product, category_id=cat_id)
+
+            # Gán ảnh
+            for img in image_files:
+                ProductImage.objects.create(product=product, image=img)
+
+            # Trả về thông tin chi tiết
+            serializer = self.get_serializer(product, context={'request': request})
+            return Response(serializer.data, status=201)
+
+        except ProductCondition.DoesNotExist:
+            return Response({'error': 'product_condition không tồn tại'}, status=400)
+        except Exception as e:
+            return Response({'error': 'Lỗi tạo sản phẩm', 'details': str(e)}, status=400)
+
+class StoreViewSet(viewsets.ModelViewSet):
+    queryset = Store.objects.all()
+    serializer_class = StoreDetailSerializer
+    permission_classes = [permissions.AllowAny]
+    def get_permissions(self):
+        if self.action in ['update', 'partial_update', 'destroy']:
+            return [permissions.IsAuthenticated(), IsOwner()]
+        elif self.action in ['my_store', 'my_products']:
+            return [permissions.IsAuthenticated()]
+        elif self.action == 'create':
+            return [permissions.IsAuthenticated()]
+        return [permissions.AllowAny()]
+
+    def get_serializer_class(self):
+        if self.action in ['retrieve', 'create', 'update', 'partial_update']:
+            return StoreDetailSerializer
+        return StoreSerializer
+    def get_queryset(self):
+        query = self.queryset
+        q = self.request.query_params.get('q')
+        if q:
+            query = query.filter(name__icontains=q)
+        return query
+    # xem product của một store bất kì không cần đăng nhập
+    @action(detail=True, methods=['get'], url_path='products')
+    def products(self, request, pk=None):
+        store = self.get_object()
+        products = Product.objects.filter(store=store)
+        paginator = ProductPaginator()
+        page = paginator.paginate_queryset(products, request)
+        if page is not None:
+            serializer = ProductSerializer(page, many=True, context={'request': request})
+            return paginator.get_paginated_response(serializer.data)
+        serializer = ProductSerializer(products, many=True, context={'request': request})
+        return Response(serializer.data)
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+    @action(detail=False, methods=['get'], url_path='my-store',)
+    def my_store(self, request):
+        store = getattr(request.user, 'store', None)
+        if not store:
+            return Response({'detail': 'Người dùng chưa có cửa hàng.'}, status=status.HTTP_404_NOT_FOUND)
+        serializer = StoreDetailSerializer(store, context={'request': request})
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], url_path='my-products', permission_classes=[permissions.IsAuthenticated])
+    def my_products(self, request):
+        store = getattr(request.user, 'store', None)
+        if not store:
+            return Response({'detail': 'Người dùng chưa có cửa hàng.'}, status=status.HTTP_404_NOT_FOUND)
+        products = Product.objects.filter(store=store)
+        paginator = ProductPaginator()
+        page = paginator.paginate_queryset(products, request)
+        serializer = ProductSerializer(page, many=True, context={'request': request})
+        return paginator.get_paginated_response(serializer.data)
+
+
+class CartGroupedView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        cart = request.user.cart
+        cart_items = cart.items.select_related('product__store').order_by('-updated_at')
+
+        grouped = defaultdict(list)
+        store_latest_update = {}
+
+        for item in cart_items:
+            store = item.product.store
+            grouped[store.id].append(item)
+            store_latest_update[store.id] = max(
+                store_latest_update.get(store.id, item.updated_at),
+                item.updated_at
+            )
+
+        sorted_store_ids = sorted(store_latest_update, key=lambda x: store_latest_update[x], reverse=True)
+
+        result = []
+        for store_id in sorted_store_ids:
+            store = grouped[store_id][0].product.store
+            result.append({
+                "store": {
+                    "id": store.id,
+                    "name": store.name,
+                    "avatar": cloudinary_url(str(store.avatar))[0] if store.avatar else None
+                },
+                "products": CartItemsSerializer(grouped[store_id], many=True).data
+            })
+
+        return Response(result)
+
+class AddToCartView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        product_id = request.data.get('product_id')
+        quantity = int(request.data.get('quantity', 1))
+
+        try:
+            product = Product.objects.get(pk=product_id, active=True)
+        except Product.DoesNotExist:
+            return Response({"error": "Sản phẩm không tồn tại."}, status=404)
+
+        if quantity > product.available_quantity:
+            return Response({"error": "Số lượng vượt quá số lượng sẵn có."}, status=400)
+
+        cart, _ = Cart.objects.get_or_create(user=request.user)
+
+        cart_item, created = CartItem.objects.get_or_create(cart=cart, product=product)
+        if not created:
+            if cart_item.quantity + quantity > product.available_quantity:
+                return Response({"error": "Tổng số lượng vượt quá số lượng sẵn có."}, status=400)
+            cart_item.quantity += quantity
+        else:
+            cart_item.quantity = quantity
+        cart_item.save()
+
+        return Response({"message": "Đã thêm sản phẩm vào giỏ hàng."})
+class UpdateCartItemView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request):
+        product_id = request.data.get('product_id')
+
+        if not product_id:
+            return Response({"error": "Thiếu product_id"}, status=400)
+
+        try:
+            product = Product.objects.get(pk=product_id)
+            cart_item = CartItem.objects.get(cart__user=request.user, product=product)
+        except Product.DoesNotExist:
+            return Response({"error": "Sản phẩm không tồn tại."}, status=404)
+        except CartItem.DoesNotExist:
+            return Response({"error": "Sản phẩm chưa có trong giỏ hàng."}, status=404)
+        new_quantity = cart_item.quantity + 1
+        if new_quantity > product.available_quantity:
+            return Response({"error": "Số lượng vượt quá giới hạn sẵn có."}, status=400)
+
+        cart_item.quantity = new_quantity
+        cart_item.save()
+
+        return Response({"message": f"Đã tăng số lượng lên {new_quantity}."}, status=200)
+class RemoveCartItemView(APIView):
+    permission_classes = [IsAuthenticated]
+    def delete(self, request):
+        product_ids = request.data.get('product_ids')
+
+        if not product_ids or not isinstance(product_ids, list):
+            return Response({"error": "Yêu cầu danh sách product_ids là một mảng."}, status=400)
+
+        deleted_count = 0
+        for product_id in product_ids:
+            try:
+                cart_item = CartItem.objects.get(cart__user=request.user, product__id=product_id)
+                cart_item.delete()
+                deleted_count += 1
+            except CartItem.DoesNotExist:
+                continue  # bỏ qua sản phẩm không tồn tại
+
+        return Response({"message": f"Đã xoá {deleted_count} sản phẩm khỏi giỏ hàng."}, status=200)
+
+
+
+class OrderViewSet(viewsets.ModelViewSet):
+    queryset = Order.objects.all()
+    serializer_class = OrderSerializer
+    permission_classes = [IsAuthenticated]
+    def get_serializer_class(self):
+        # Nếu là PATCH -> dùng serializer riêng cho cập nhật trạng thái
+        if self.action == 'partial_update':
+            return OrderStatusUpdateSerializer
+        return super().get_serializer_class()
+    def create(self, request, *args, **kwargs):
+        user = request.user
+        items_data = request.data.get('items', [])
+        voucher_id = request.data.get('voucher')
+        note = request.data.get('note', '')
+        delivery_info_id = request.data.get('delivery_info_id')
+        try:
+            delivery_info = DeliveryInformation.objects.get(id=delivery_info_id, user=user)
+        except DeliveryInformation.DoesNotExist:
+            return Response({"error": "Địa chỉ giao hàng không hợp lệ"}, status=status.HTTP_400_BAD_REQUEST)
+        if not items_data:
+            return Response({"error": "Danh sách sản phẩm không được để trống."}, status=400)
+
+        # Lấy store từ sản phẩm đầu tiên
+        first_product_id = items_data[0].get('product')
+        try:
+            first_product = Product.objects.get(id=first_product_id)
+        except Product.DoesNotExist:
+            return Response({"error": f"Sản phẩm đầu tiên không tồn tại."}, status=404)
+
+        store_id = first_product.store_id
+
+        total_cost = 0
+        order_items = []
+
+        # Kiểm tra từng sản phẩm
+        for item in items_data:
+            product_id = item.get('product')
+            quantity = item.get('quantity')
+
+            if not product_id or quantity is None:
+                return Response({"error": "Thiếu product_id hoặc quantity trong items."}, status=400)
+
+            try:
+                product = Product.objects.get(id=product_id)
+            except Product.DoesNotExist:
+                return Response({"error": f"Sản phẩm {product_id} không tồn tại."}, status=404)
+
+            if product.store_id != store_id:
+                return Response({"error": "Tất cả sản phẩm phải thuộc cùng một cửa hàng."}, status=400)
+
+            if product.available_quantity < quantity:
+                return Response({"error": f"Sản phẩm '{product.name}' không đủ số lượng."}, status=400)
+
+            total_cost += product.price * quantity
+            order_items.append((product, quantity))
+
+        # Tính khoảng cách và phí ship
+        store = Store.objects.get(id=store_id)
+        start_address = store.address
+        end_address = delivery_info.address
+        if not end_address:
+            return Response({"error": "Người dùng chưa có thông tin giao hàng"}, status=404)
+        distance = get_directions_distance(start_address, end_address, settings.MAPBOX_API_KEY)
+        ship_fee = ship_fee_cost(distance)
+        total_cost += ship_fee
+        # Kiểm tra và áp dụng voucher
+        voucher = None
+        if voucher_id:
+            try:
+                voucher = Voucher.objects.get(id=voucher_id)
+
+                if not voucher.is_valid():
+                    return Response({"error": "Voucher không hợp lệ, đã hết hạn hoặc đã hết lượt sử dụng."}, status=400)
+
+                if total_cost < voucher.min_order_value:
+                    return Response({"error": "Không đủ điều kiện sử dụng voucher."}, status=400)
+
+                discount = Decimal(voucher.discount_percent or 0) / Decimal('100')
+                total_cost *= (Decimal('1') - discount)
+
+            except Voucher.DoesNotExist:
+                return Response({"error": "Không tìm thấy voucher."}, status=404)
+
+        # Lấy OrderStatus mặc định có id=1
+        try:
+            order_status = OrderStatus.objects.get(id=1)
+        except OrderStatus.DoesNotExist:
+            return Response({"error": "Trạng thái đơn hàng mặc định (id=1) không tồn tại."}, status=500)
+
+        # Tạo đơn hàng
+        with transaction.atomic():
+            order = Order.objects.create(
+                user=user,
+                store_id=store_id,
+                ship_fee=ship_fee,
+                total_cost=total_cost,
+                voucher=voucher,
+                order_status=order_status,
+                note=note,
+                delivery_info=delivery_info,
+            )
+
+            for product, quantity in order_items:
+                OrderItem.objects.create(order=order, product=product, quantity=quantity)
+                product.available_quantity -= quantity
+                product.purchases+= quantity
+                product.save()
+
+            if voucher:
+                voucher.used_count += 1
+                voucher.order_used.add(order)
+                voucher.save()
+        serializer = self.get_serializer(order)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def partial_update(self, request, *args, **kwargs):
+        allowed_fields = {'order_status'}
+        invalid_fields = set(request.data.keys()) - allowed_fields
+        if invalid_fields:
+            return Response(
+                {"error": f"Chỉ được cập nhật field: {allowed_fields}. Các trường không hợp lệ: {invalid_fields}"},
+                status=400
+            )
+        return super().partial_update(request, *args, **kwargs)
