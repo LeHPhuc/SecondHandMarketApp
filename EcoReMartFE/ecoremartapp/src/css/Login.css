@@ -1,0 +1,407 @@
+/* Container */
+.login-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  padding: 20px;
+}
+
+.login-content {
+  width: 100%;
+  height: 100%;
+}
+
+/* Card */
+.login-card {
+  background: #ffffff;
+  border: none;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  padding: 48px 40px;
+  transition: all 0.3s ease;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.login-card:hover {
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+}
+
+/* Header */
+.login-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.login-logo {
+  margin-bottom: 24px;
+}
+
+.logo-icon {
+  width: 72px;
+  height: 72px;
+  background: linear-gradient(135deg, #ff9800, #f57c00);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3);
+}
+
+.logo-icon .anticon {
+  font-size: 32px;
+  color: white;
+}
+
+.login-title {
+  color: #1a1a1a;
+  margin-bottom: 8px !important;
+  font-weight: 600;
+  font-size: 28px;
+}
+
+.login-subtitle {
+  color: #666666;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+/* Error Alert */
+.error-alert {
+  margin-bottom: 24px;
+  border-radius: 8px;
+  border: 1px solid #ff4d4f;
+  background-color: #fff2f0;
+}
+
+.error-alert .ant-alert-message {
+  color: #a8071a;
+  font-weight: 500;
+}
+
+/* Form */
+.login-form {
+  margin-bottom: 32px;
+}
+
+.login-form .ant-form-item-label > label {
+  color: #333333;
+  font-weight: 600;
+  font-size: 15px;
+  height: auto;
+}
+
+.login-input {
+  height: 52px;
+  border-radius: 10px;
+  border: 2px solid #e0e0e0;
+  background: #fafafa;
+  transition: all 0.3s ease;
+  font-size: 16px;
+  padding: 0 16px;
+}
+
+.login-input:hover {
+  border-color: #ff9800;
+  background: #ffffff;
+}
+
+.login-input:focus,
+.login-input.ant-input-focused {
+  border-color: #ff9800;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.1);
+}
+
+.login-input .ant-input {
+  background: transparent;
+  border: none;
+  font-size: 16px;
+}
+
+.login-input .ant-input::placeholder {
+  color: #999999;
+  font-size: 15px;
+}
+
+.form-icon {
+  color: #ff9800;
+  font-size: 18px;
+  margin-right: 8px;
+}
+
+/* Form Item Spacing */
+.login-form .ant-form-item {
+  margin-bottom: 24px;
+}
+
+.login-options {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 32px;
+  margin-top: -8px;
+}
+
+.forgot-link {
+  color: #ff9800;
+  font-weight: 500;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.forgot-link:hover {
+  color: #f57c00;
+  text-decoration: underline;
+}
+
+/* Login Button */
+.login-button {
+  height: 52px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #ff9800, #f57c00);
+  border: none;
+  font-weight: 600;
+  font-size: 16px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3);
+}
+
+.login-button:hover,
+.login-button:focus {
+  background: linear-gradient(135deg, #f57c00, #e65100);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(255, 152, 0, 0.4);
+}
+
+.login-button.ant-btn-loading {
+  background: linear-gradient(135deg, #ff9800, #f57c00);
+  opacity: 0.8;
+}
+
+/* Footer */
+.login-footer {
+  text-align: center;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.signup-section {
+  margin-bottom: 16px;
+}
+
+.signup-text {
+  color: #666666;
+  font-size: 15px;
+}
+
+.signup-link {
+  color: #ff9800;
+  font-weight: 600;
+  margin-left: 6px;
+  transition: all 0.3s ease;
+  font-size: 15px;
+}
+
+.signup-link:hover {
+  color: #f57c00;
+  text-decoration: underline;
+}
+
+.home-section {
+  margin-top: 8px;
+}
+
+.home-link {
+  color: #999999;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.3s ease;
+}
+
+.home-link:hover {
+  color: #ff9800;
+}
+
+/* Form Validation */
+.ant-form-item-has-error .login-input {
+  border-color: #ff4d4f;
+  background: #fff6f6;
+}
+
+.ant-form-item-has-error .login-input:focus {
+  border-color: #ff4d4f;
+  box-shadow: 0 0 0 3px rgba(255, 77, 79, 0.1);
+}
+
+.ant-form-item-explain-error {
+  font-size: 13px;
+  color: #ff4d4f;
+  margin-top: 6px;
+  font-weight: 500;
+}
+
+/* Loading State */
+.login-button.ant-btn-loading .anticon {
+  color: #ffffff;
+}
+
+/* Email Verification Alert */
+.verification-alert {
+  margin-bottom: 24px;
+  border-radius: 8px;
+  border: 1px solid #faad14;
+  background-color: #fffbe6;
+}
+
+.verification-alert .ant-alert-message {
+  color: #ad6800;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.verification-alert .ant-alert-description {
+  color: #ad6800;
+  margin-top: 8px;
+}
+
+.verification-alert-content p {
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.verification-alert-content p:last-of-type {
+  margin-bottom: 12px;
+  font-weight: 500;
+}
+
+.resend-verification-btn {
+  background: linear-gradient(135deg, #ff9800, #f57c00);
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  height: 32px;
+  font-size: 13px;
+}
+
+.resend-verification-btn:hover,
+.resend-verification-btn:focus {
+  background: linear-gradient(135deg, #f57c00, #e65100);
+  transform: translateY(-1px);
+}
+
+.resend-verification-btn.ant-btn-loading {
+  background: linear-gradient(135deg, #ff9800, #f57c00);
+  opacity: 0.8;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .login-container {
+    padding: 16px;
+  }
+  
+  .login-card {
+    padding: 32px 24px;
+    border-radius: 12px;
+  }
+  
+  .login-title {
+    font-size: 24px;
+  }
+  
+  .login-subtitle {
+    font-size: 14px;
+  }
+  
+  .logo-icon {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .logo-icon .anticon {
+    font-size: 26px;
+  }
+  
+  .login-input {
+    height: 48px;
+    font-size: 15px;
+  }
+  
+  .login-button {
+    height: 48px;
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 576px) {
+  .login-card {
+    padding: 24px 20px;
+  }
+  
+  .login-form .ant-form-item {
+    margin-bottom: 20px;
+  }
+  
+  .login-options {
+    margin-bottom: 24px;
+  }
+  
+  .verification-alert-content {
+    text-align: center;
+  }
+  
+  .resend-verification-btn {
+    width: 100%;
+    margin-top: 8px;
+  }
+}
+
+/* Animation */
+.login-card {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Focus States */
+.login-input:focus-within {
+  border-color: #ff9800;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.1);
+}
+
+/* Password Input */
+.login-input.ant-input-password {
+  padding-right: 40px;
+}
+
+.login-input .ant-input-password-icon {
+  color: #999999;
+  transition: color 0.3s ease;
+}
+
+.login-input .ant-input-password-icon:hover {
+  color: #ff9800;
+}
+
+/* Accessibility */
+.login-button:focus-visible {
+  outline: 2px solid #ff9800;
+  outline-offset: 2px;
+}
+
+.login-input:focus-visible {
+  outline: none;
+}

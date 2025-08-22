@@ -9,22 +9,14 @@ from EcoReMartApp.models import *
 from EcoReMartApp.paginators import ProductPaginator
 from EcoReMart import settings
 class UserSerializer(serializers.ModelSerializer):
-    avatar = serializers.SerializerMethodField()
+    avatar = serializers.ImageField()
     store= serializers.SerializerMethodField()
-    def create(self, validated_data):
-        password = validated_data.pop("password", None)
-        user = User(**validated_data)
-        if password:
-            user.set_password(password)
-        user.save()
-        return user
-
     class Meta:
         model = User
-        fields = ['id','email','password','first_name', 'last_name','phone_number','avatar','store']
+        fields = ['id','email','first_name', 'last_name','phone_number','avatar','store']
         extra_kwargs = {
-            'password': {
-                'write_only': True,
+            'id': {
+                'read_only': True,
             }
         }
 
@@ -101,7 +93,7 @@ class ProductConditionSerializer(serializers.ModelSerializer):
 class ProductDetailSerializer(ProductSerializer):
     images = ProductImageSerializer(many=True, read_only=True)
     categories = CategoryInProductSerializer(many=True, read_only=True)
-    conditions = ProductConditionSerializer(read_only=True)
+    conditions = ProductConditionSerializer(source='product_condition', read_only=True)
     comments_count = serializers.SerializerMethodField()
     def get_comments_count(self,obj):
         return obj.comments.all().count()
@@ -143,8 +135,9 @@ class CommentSerializer(serializers.ModelSerializer):
         return req
     class Meta:
         model = Comment
-        fields = ['id','user', 'content','created_date','images']
+        fields = ['id','user','rating', 'content','created_date','images']
 class StoreSerializer(serializers.ModelSerializer):
+    avatar = serializers.ImageField()
     class Meta:
         model = Store
         fields = ('id','name','address','avatar')
@@ -153,6 +146,10 @@ class StoreSerializer(serializers.ModelSerializer):
                 'read_only': True,
             }
         }
+    def get_avatar(self, obj):
+        if obj.avatar:
+            url, options = cloudinary_url(obj.avatar.url)
+            return url
 
 class StoreDetailSerializer(StoreSerializer):
     class Meta:
@@ -196,17 +193,24 @@ class OrderItemInputSerializer(serializers.Serializer):
 class DeliveryInformationSerializer(serializers.ModelSerializer):
     class Meta:
         model = DeliveryInformation
-        fields = '__all__'
+        fields = ['id', 'name', 'phone_number', 'address']
+    def validate_address(self, value):
+        api_key = settings.MAPBOX_API_KEY
+        if not is_valid_address(value, api_key):
+            raise serializers.ValidationError("Địa chỉ không tồn tại hoặc không hợp lệ.")
+        return value
+
 class OrderSerializer(serializers.ModelSerializer):
     items = serializers.SerializerMethodField()
     store_name = serializers.CharField(source='store.name', read_only=True)
     voucher_code = serializers.CharField(source='voucher.code', read_only=True)
+    voucher_discount_percent = serializers.CharField(source='voucher.discount_percent', read_only=True)
     order_status=serializers.CharField(source='order_status.status_name', read_only=True)
     delivery_info=DeliveryInformationSerializer(read_only=True)
     class Meta:
         model = Order
-        fields = ['id','user','delivery_info','order_code', 'store', 'store_name', 'voucher', 'voucher_code',
-                  'order_status', 'note','ship_fee', 'total_cost', 'created_at', 'items']
+        fields = ['id','user','delivery_info','order_code', 'store', 'store_name', 'voucher', 'voucher_code','voucher_discount_percent',
+                  'order_status', 'note','ship_fee', 'total_cost', 'created_at', 'items','payment_method']
 
     def get_items(self, obj):
         order_items = OrderItem.objects.filter(order=obj)
@@ -216,3 +220,12 @@ class OrderStatusUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ['order_status']
+class OrderStatusSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderStatus
+        fields = '__all__'
+
+class VoucherSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Voucher
+        fields = '__all__'

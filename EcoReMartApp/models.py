@@ -45,6 +45,10 @@ class DeliveryInformation(models.Model):
     class Meta:
         unique_together = ('user','name', 'phone_number', 'address'),
 
+    @property
+    def owner(self):
+        return self.user
+
     def __str__(self):
         return f"{self.user} - {self.address}"
 
@@ -88,7 +92,7 @@ class Product(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0,verbose_name="Giá bán" )
     purchases = models.PositiveIntegerField(default=0)
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='products')
-    product_condition = models.ForeignKey(ProductCondition, on_delete=models.SET_NULL, null=True)
+    product_condition = models.ForeignKey(ProductCondition, on_delete=models.SET_NULL, null=True,related_name="products")
     class Meta:
         ordering = ['-created_date']
 
@@ -103,7 +107,8 @@ class Product(models.Model):
 class Category(models.Model):
     name = models.CharField(max_length=45,unique=True)
     products = models.ManyToManyField(Product, through='ProductCategory',related_name='categories')
-
+    class Meta:
+        ordering = ['-id']
     def __str__(self):
         return self.name
 
@@ -148,6 +153,7 @@ class Order(models.Model):
     products = models.ManyToManyField(Product,through='OrderItem')
     voucher = models.ForeignKey('Voucher', on_delete=models.SET_NULL, null=True, blank=True, related_name='orders')
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     is_paid = models.BooleanField(default=False)
     paid_at = models.DateTimeField(null=True, blank=True)
     delivery_info = models.ForeignKey(

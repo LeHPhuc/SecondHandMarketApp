@@ -1,0 +1,445 @@
+/* ===== MAIN CONTAINER ===== */
+.store-orders {
+  padding: 0;
+}
+
+/* ===== SEARCH SECTION ===== */
+.search-card {
+  margin-bottom: 16px;
+}
+
+.search-input {
+  max-width: 400px;
+}
+
+.clear-filter-btn {
+  /* Inherit default styling */
+}
+
+.search-result-info {
+  margin-top: 8px;
+  color: #666;
+}
+
+/* ===== ORDERS TABLE SECTION ===== */
+.orders-table-card {
+  /* Inherit default card styling */
+}
+
+.orders-tabs {
+  /* Inherit default tabs styling */
+}
+
+.orders-table {
+  /* Inherit default table styling */
+}
+
+/* ===== TABLE CELL STYLING ===== */
+.order-code-table {
+  color: #1890ff;
+}
+
+.total-cost-table {
+  color: #52c41a;
+}
+
+.status-tag-table {
+  /* Inherit tag styling */
+}
+
+.view-detail-btn {
+  /* Inherit button styling */
+}
+
+.reject-button {
+  background-color: #ff4d4f !important;
+  border-color: #ff4d4f !important;
+  color: white !important;
+}
+
+/* ===== MODAL STYLING ===== */
+.order-detail-modal {
+  /* Inherit modal styling */
+}
+
+.modal-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal-icon {
+  color: #1890ff;
+}
+
+.order-detail-content {
+  font-size: 14px;
+}
+
+/* ===== SECTION TITLES ===== */
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #262626;
+}
+
+/* ===== ORDER INFO SECTION ===== */
+.order-code {
+  color: #1890ff;
+}
+
+.status-tag {
+  font-size: 13px;
+}
+
+.voucher-icon {
+  color: #52c41a;
+}
+
+.voucher-tag {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.voucher-percent {
+  font-size: 12px;
+}
+
+.discount-text {
+  color: #52c41a;
+}
+
+.customer-note {
+  color: #666;
+}
+
+/* ===== DELIVERY INFO SECTION ===== */
+.info-icon {
+  /* Base icon styling */
+}
+
+.user-icon {
+  color: #1890ff;
+}
+
+.phone-icon {
+  color: #52c41a;
+}
+
+.address-icon {
+  color: #ff4d4f;
+}
+
+/* ===== ORDER ITEMS SECTION ===== */
+.order-items-section {
+  margin-bottom: 16px;
+}
+
+.items-icon {
+  color: #1890ff;
+}
+
+.items-table {
+  margin-bottom: 16px;
+}
+
+.items-table .ant-table-thead > tr > th {
+  background-color: #f0f9ff;
+  font-weight: 600;
+  color: #1890ff;
+  border-bottom: 2px solid #bae7ff;
+}
+
+.items-table .ant-table-tbody > tr:hover > td {
+  background-color: #f8f9ff;
+}
+
+/* ===== PRODUCT IMAGE STYLING ===== */
+.product-image-container {
+  cursor: pointer;
+  position: relative;
+  display: inline-block;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.product-image {
+  border-radius: 8px;
+  object-fit: cover;
+  border: 2px solid transparent;
+  transition: all 0.3s ease;
+}
+
+.product-image-container:hover .product-image {
+  border-color: #1890ff;
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.2);
+}
+
+.product-link-overlay {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  border-radius: 0 8px 0 8px;
+  padding: 2px 6px;
+  font-size: 10px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 10;
+}
+
+.product-image-container:hover .product-link-overlay {
+  opacity: 1;
+}
+
+/* ===== PRODUCT INFO STYLING ===== */
+.product-name-link {
+  padding: 0 !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  text-align: left !important;
+  height: auto !important;
+  color: #1890ff !important;
+  white-space: normal !important;
+  line-height: 1.4 !important;
+}
+
+.product-name-link:hover {
+  color: #40a9ff !important;
+  text-decoration: underline !important;
+}
+
+.product-link-icon {
+  margin-right: 4px;
+  font-size: 12px;
+}
+
+.product-id {
+  font-size: 12px;
+}
+
+.unit-price {
+  color: #1890ff;
+}
+
+.quantity-tag {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.item-total {
+  color: #52c41a;
+  font-size: 14px;
+}
+
+/* ===== CALCULATION SECTION ===== */
+.calculation-section {
+  margin-bottom: 16px;
+}
+
+.calculation-icon {
+  color: #52c41a;
+}
+
+.calculation-card {
+  background-color: #fafafa;
+}
+
+.calculation-content {
+  font-size: 14px;
+}
+
+.calculation-row {
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background-color 0.2s ease;
+}
+
+.calculation-row:hover {
+  background-color: #fafafa;
+  margin: 0 -16px;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+.voucher-row {
+  background-color: #f6ffed;
+  border: 1px solid #b7eb8f;
+  border-radius: 4px;
+  margin: 4px -16px;
+  padding: 8px 16px;
+}
+
+.voucher-calc-icon {
+  color: #52c41a;
+}
+
+.total-row {
+  background: linear-gradient(135deg, #fff7e6 0%, #ffe7ba 100%);
+  margin: 8px -16px -16px;
+  padding-left: 16px;
+  padding-right: 16px;
+  border-radius: 0 0 6px 6px;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+/* ===== AMOUNT STYLING ===== */
+.subtotal-amount {
+  color: #1890ff;
+  font-weight: 600;
+}
+
+.shipping-amount {
+  color: #fa8c16;
+  font-weight: 600;
+}
+
+.discount-amount {
+  color: #52c41a;
+  font-weight: 600;
+}
+
+.total-label {
+  font-size: 16px;
+  color: #d46b08;
+}
+
+.total-amount {
+  font-size: 18px;
+  color: #52c41a;
+}
+
+/* ===== FORMULA SECTION ===== */
+.calculation-formula {
+  margin-top: 12px;
+}
+
+.formula-description {
+  font-size: 13px;
+}
+
+.formula-result {
+  color: #52c41a;
+  margin-left: 4px;
+}
+
+.celebration-message {
+  margin-top: 4px;
+  text-align: center;
+}
+
+.celebration-text {
+  color: #52c41a;
+  font-size: 12px;
+}
+
+/* ===== DESCRIPTIONS STYLING ===== */
+.order-detail-content .ant-descriptions-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #262626;
+}
+
+.order-detail-content .ant-descriptions-item-label {
+  font-weight: 500;
+  color: #595959;
+  background-color: #fafafa;
+}
+
+.order-detail-content .ant-descriptions-item-content {
+  color: #262626;
+}
+
+.order-detail-content .ant-descriptions-item:hover {
+  background-color: #fafafa;
+  transition: background-color 0.3s ease;
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+@media (max-width: 768px) {
+  .order-detail-modal .ant-modal {
+    width: 95% !important;
+    margin: 10px auto;
+  }
+  
+  .order-detail-content .ant-descriptions {
+    font-size: 12px;
+  }
+  
+  .items-table .ant-table-small {
+    font-size: 11px;
+  }
+  
+  .product-image {
+    width: 40px !important;
+    height: 40px !important;
+  }
+  
+  .product-image-container:hover .product-image {
+    transform: scale(1.02);
+  }
+  
+  .calculation-row {
+    font-size: 13px;
+  }
+  
+  .total-amount {
+    font-size: 16px;
+  }
+  
+  .celebration-text {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 480px) {
+  .search-input {
+    max-width: 100%;
+  }
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes money-highlight {
+  0%, 100% { 
+    background-color: transparent; 
+  }
+  50% { 
+    background-color: #fffbe6; 
+  }
+}
+
+.money-highlight {
+  animation: money-highlight 1s ease-in-out;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+/* ===== HOVER EFFECTS ===== */
+.order-detail-content .ant-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.order-detail-content .ant-tag {
+  transition: all 0.3s ease;
+}
+
+.order-detail-content .ant-tag:hover {
+  transform: scale(1.05);
+}
+
+/* ===== LOADING STATES ===== */
+.order-detail-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+}

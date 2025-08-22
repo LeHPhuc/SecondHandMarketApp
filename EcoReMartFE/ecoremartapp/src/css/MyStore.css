@@ -1,0 +1,742 @@
+/**
+ * MyStore Component Styles - Tối ưu hóa
+ * Mô tả: CSS cho component quản lý cửa hàng cá nhân
+ * Bao gồm: Store header, products table, modals, responsive design
+ * Cập nhật: Đã tối ưu và loại bỏ code dư thừa
+ */
+
+/* ===== CSS VARIABLES - Tối ưu ===== */
+:root {
+  /* Color palette - Orange theme */
+  --primary-orange: #ff8f00;
+  --primary-orange-light: #ffb74d;
+  --primary-orange-lighter: #fff8e1;
+  --success-green: #4caf50;
+  
+  /* Text colors */
+  --text-primary: #212121;
+  --text-secondary: #757575;
+  --text-light: #9e9e9e;
+  
+  /* Background colors */
+  --bg-white: #ffffff;
+  --bg-light: #fafafa;
+  --border-light: #f5f5f5;
+  
+  /* Effects */
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --radius: 8px;
+  --spacing: 16px;
+  --transition: 0.2s ease;
+}
+
+/* ===== MAIN CONTAINER ===== */
+.my-store-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--spacing);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg-light);
+  min-height: 100vh;
+}
+
+/* ===== LOADING & EMPTY STATES ===== */
+.loading-container,
+.empty-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  gap: 16px;
+}
+
+.loading-text {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+/* ===== STORE HEADER - Compact Design ===== */
+.store-header-card {
+  background: var(--bg-white);
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--border-light);
+  position: relative;
+}
+
+.store-header-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--primary-orange) 0%, var(--primary-orange-light) 100%);
+  border-radius: 12px 12px 0 0;
+}
+
+.store-header-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+/* ===== STORE AVATAR SECTION ===== */
+.store-avatar-section {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.store-avatar {
+  width: 80px !important;
+  height: 80px !important;
+  border: 2px solid var(--border-light) !important;
+  box-shadow: var(--shadow-card) !important;
+}
+
+.store-avatar-fallback {
+  background: var(--primary-orange-lighter) !important;
+  color: var(--primary-orange) !important;
+}
+
+.avatar-edit-overlay {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 24px;
+  height: 24px;
+  background: var(--primary-orange);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 12px;
+  border: 2px solid white;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.avatar-edit-overlay:hover {
+  background: var(--primary-orange-light);
+  transform: scale(1.1);
+}
+
+/* ===== STORE INFO SECTION ===== */
+.store-info-compact {
+  flex: 1;
+  min-width: 0;
+}
+
+.store-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.store-name {
+  font-size: 20px !important;
+  font-weight: 600 !important;
+  margin: 0 !important;
+  color: var(--text-primary) !important;
+}
+
+.store-badges-compact {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.join-year {
+  font-size: 12px !important;
+  color: var(--text-light) !important;
+}
+
+.store-details-compact {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.info-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.info-icon {
+  color: var(--primary-orange);
+  font-size: 14px;
+}
+
+.info-text {
+  font-size: 13px !important;
+  color: var(--text-secondary) !important;
+}
+
+.store-description-compact {
+  margin-top: 8px;
+}
+
+.store-description-compact .ant-typography {
+  font-size: 13px !important;
+  margin: 0 !important;
+  max-width: 400px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2; /* Standard property for compatibility */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ===== STORE ACTIONS ===== */
+.store-actions-compact {
+  flex-shrink: 0;
+}
+
+.edit-btn-compact {
+  color: var(--primary-orange) !important;
+  border: 1px solid var(--primary-orange) !important;
+  border-radius: 6px !important;
+  font-weight: 500 !important;
+  transition: var(--transition) !important;
+}
+
+.edit-btn-compact:hover {
+  background: var(--primary-orange-lighter) !important;
+  border-color: var(--primary-orange-light) !important;
+}
+
+/* ===== MAIN CONTENT CARD ===== */
+.main-content-card {
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--border-light);
+}
+
+/* ===== PRODUCTS SECTION ===== */
+.products-section {
+  padding: 0;
+}
+
+.products-header-compact {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 16px 20px;
+  background: var(--bg-light);
+  border-radius: var(--radius);
+  border: 1px solid var(--border-light);
+}
+
+.products-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.section-title {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  margin: 0 !important;
+  color: var(--text-primary) !important;
+}
+
+.products-count {
+  font-size: 12px !important;
+  color: var(--text-light) !important;
+  margin: 0 !important;
+}
+
+.add-product-btn-compact {
+  background: var(--primary-orange) !important;
+  border: none !important;
+  border-radius: 6px !important;
+  font-weight: 500 !important;
+  height: 32px !important;
+  padding: 0 16px !important;
+  font-size: 13px !important;
+}
+
+.add-product-btn-compact:hover {
+  background: var(--primary-orange-light) !important;
+}
+
+/* ===== PRODUCTS TABLE ===== */
+.products-table-compact {
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border-light);
+}
+
+.products-table-compact .ant-table {
+  border-radius: 0;
+}
+
+.products-table-compact .ant-table-thead > tr > th {
+  background: var(--bg-light) !important;
+  border-bottom: 1px solid var(--border-light) !important;
+  color: var(--text-primary) !important;
+  font-weight: 500 !important;
+  font-size: 13px !important;
+  padding: 12px 16px !important;
+}
+
+.products-table-compact .ant-table-tbody > tr > td {
+  padding: 12px 16px !important;
+  border-bottom: 1px solid #f8f8f8 !important;
+}
+
+.products-table-compact .ant-table-tbody > tr:hover > td {
+  background: #fafafa !important;
+  transition: background-color 0.1s ease;
+}
+
+/* ===== PRODUCT ITEMS ===== */
+.product-image {
+  width: 60px !important;
+  height: 60px !important;
+  border-radius: 4px !important;
+  object-fit: cover !important;
+  border: 1px solid var(--border-light) !important;
+}
+
+.product-name {
+  font-weight: 500 !important;
+  color: var(--text-primary) !important;
+  font-size: 14px !important;
+  margin-bottom: 2px;
+}
+
+.product-id {
+  font-size: 11px !important;
+  color: var(--text-light) !important;
+}
+
+.product-price {
+  color: var(--primary-orange) !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+}
+
+.quantity-tag {
+  background: var(--success-green) !important;
+  color: white !important;
+  border: none !important;
+  font-size: 12px !important;
+  padding: 2px 8px !important;
+  border-radius: 4px !important;
+}
+
+.status-tag {
+  font-size: 12px !important;
+  border-radius: 4px !important;
+}
+
+/* ===== ACTION BUTTONS ===== */
+.action-btn {
+  border: none !important;
+  box-shadow: none !important;
+  padding: 4px 8px !important;
+  height: auto !important;
+  border-radius: 4px !important;
+  transition: opacity 0.1s ease;
+}
+
+.action-btn:hover {
+  opacity: 0.8;
+}
+
+/* ===== PAGINATION ===== */
+.pagination-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  background: var(--bg-white);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+}
+
+.pagination-btn {
+  width: 80px;
+  height: 32px;
+  border: 1px solid var(--border-light);
+  background: var(--bg-white);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: var(--transition);
+  font-size: 13px;
+}
+
+.pagination-btn:hover:not(.disabled) {
+  border-color: var(--primary-orange);
+  color: var(--primary-orange);
+}
+
+.pagination-btn.disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.page-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.current-page {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.page-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.page-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ddd;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.page-dot.active {
+  background: var(--primary-orange);
+}
+
+.pagination-loading {
+  position: absolute;
+  right: 16px;
+}
+
+/* ===== MODALS - Clean Design ===== */
+.modal-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ant-modal-header {
+  border-bottom: 1px solid var(--border-light) !important;
+  padding: 20px 24px 16px !important;
+}
+
+.ant-modal-title {
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  color: var(--text-primary) !important;
+}
+
+.ant-modal-body {
+  padding: 24px !important;
+}
+
+.ant-modal-footer {
+  border-top: 1px solid var(--border-light) !important;
+  padding: 16px 24px !important;
+}
+
+/* ===== FORM STYLES ===== */
+.form-section {
+  padding: 0;
+}
+
+.form-actions {
+  margin-top: 24px !important;
+  margin-bottom: 0 !important;
+}
+
+.cancel-btn {
+  border: 1px solid var(--border-light) !important;
+  color: var(--text-secondary) !important;
+}
+
+.submit-btn {
+  background: var(--primary-orange) !important;
+  border-color: var(--primary-orange) !important;
+}
+
+/* ===== UPLOAD COMPONENTS - FIXED LAYOUT ===== */
+.ant-upload-select-picture-card {
+  width: 120px !important;
+  height: 120px !important;
+  border: 1px dashed var(--border-light) !important;
+  border-radius: 6px !important;
+  background: #fafafa !important;
+  margin: 0 !important;
+}
+
+.ant-upload-select-picture-card:hover {
+  border-color: var(--primary-orange) !important;
+}
+
+/* Hide the default upload list completely */
+.ant-upload-list-picture-card {
+  display: none !important;
+}
+
+/* Custom upload container with proper spacing */
+.upload-container-custom {
+  display: flex;
+  gap: 40px;
+  align-items: flex-start;
+  padding: 8px;
+  flex-wrap: wrap;
+}
+
+.upload-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 120px;
+}
+
+.current-image-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 120px;
+}
+
+.selected-images-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 120px;
+}
+
+.selected-images-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 260px;
+  justify-content: center;
+}
+
+.selected-image-item {
+  position: relative;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #f0f0f0;
+}
+
+.selected-image-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.selected-image-remove:hover {
+  background: rgba(255, 0, 0, 0.7);
+}
+
+.upload-text {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.upload-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 8px;
+  text-align: center;
+  font-weight: 500;
+}
+
+/* Form item spacing */
+.ant-form-item {
+  margin-bottom: 20px;
+}
+
+.ant-form-item-label {
+  margin-bottom: 8px;
+}
+
+/* Modal form spacing */
+.ant-modal-body .ant-form {
+  padding: 0;
+}
+
+.ant-modal-body .ant-form-item:last-child {
+  margin-bottom: 0;
+}
+
+/* ===== TAB CUSTOMIZATION ===== */
+.tab-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+@media (max-width: 768px) {
+  .my-store-container {
+    padding: 12px;
+  }
+  
+  .store-header-wrapper {
+    flex-direction: column;
+    text-align: center;
+    gap: 16px;
+  }
+  
+  .store-details-compact {
+    justify-content: center;
+  }
+  
+  .products-header-compact {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+  
+  .add-product-btn-compact {
+    width: 100%;
+  }
+  
+  .products-table-compact .ant-table-thead > tr > th,
+  .products-table-compact .ant-table-tbody > tr > td {
+    padding: 8px 12px !important;
+    font-size: 12px !important;
+  }
+  
+  .product-image {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  /* Upload components responsive */
+  .ant-upload-select-picture-card {
+    width: 100px !important;
+    height: 100px !important;
+  }
+
+  .ant-upload-list-picture-card .ant-upload-list-item {
+    width: 100px !important;
+    height: 100px !important;
+  }
+
+  /* Modal responsive spacing */
+  .ant-modal-body {
+    padding: 16px !important;
+  }
+
+  /* Upload container responsive */
+  .upload-container-custom {
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 20px !important;
+  }
+
+  .upload-section,
+  .current-image-section {
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+  }
+}
+
+/* ===== SCROLLBAR STYLES ===== */
+.products-table-compact .ant-table-body::-webkit-scrollbar {
+  height: 4px;
+  width: 4px;
+}
+
+.products-table-compact .ant-table-body::-webkit-scrollbar-thumb {
+  background: #d9d9d9;
+  border-radius: 2px;
+}
+
+.products-table-compact .ant-table-body::-webkit-scrollbar-thumb:hover {
+  background: #bfbfbf;
+}
+
+/* ===== FOCUS STATES ===== */
+.pagination-btn:focus,
+.action-btn:focus,
+.add-product-btn-compact:focus,
+.edit-btn-compact:focus {
+  outline: 2px solid var(--primary-orange);
+  outline-offset: 1px;
+}
+
+/* ===== UTILITIES ===== */
+.text-center { text-align: center; }
+.flex-center { 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+}
+.gap-16 { gap: 16px; }
+.gap-8 { gap: 8px; }
+
+/* Upload layout utilities */
+.upload-container {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  padding: 8px;
+  flex-wrap: wrap;
+}
+
+.upload-item {
+  text-align: center;
+  min-width: 120px;
+}
+
+.upload-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: block;
+  margin-top: 8px;
+  font-weight: 500;
+}
+
+/* Prevent image overflow */
+.current-image-container {
+  text-align: center;
+  max-width: 120px;
+}
+
+.current-image-container img {
+  border-radius: 8px;
+  border: 1px solid #f0f0f0;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}

@@ -1,0 +1,523 @@
+/* CreateOrder Component Styles */
+
+/* Scrollable Container Styles */
+.create-order-scrollable {
+  scrollbar-width: thin;
+  scrollbar-color: #d9d9d9 transparent;
+}
+
+.create-order-scrollable::-webkit-scrollbar {
+  width: 6px;
+}
+
+.create-order-scrollable::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.create-order-scrollable::-webkit-scrollbar-thumb {
+  background: #d9d9d9;
+  border-radius: 3px;
+  transition: background 0.3s ease;
+}
+
+.create-order-scrollable::-webkit-scrollbar-thumb:hover {
+  background: #bfbfbf;
+}
+
+/* Products Section */
+.products-scrollable {
+  padding-right: 8px;
+}
+
+.products-scroll-indicator {
+  font-size: 12px;
+  color: #999;
+  text-align: center;
+  margin-top: 8px;
+  font-style: italic;
+}
+
+.store-header {
+  margin-bottom: 16px;
+  padding: 12px;
+  background-color: #f8f9fa;
+  border-radius: 6px;
+}
+
+.product-item {
+  padding: 16px;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.product-image img {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.product-info h5 {
+  margin: 0 0 4px 0;
+}
+
+.product-price {
+  color: #ff6b35;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.product-quantity {
+  margin-left: 12px;
+}
+
+.product-total {
+  color: #ff6b35;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+/* Delivery Info Section */
+.delivery-info-scrollable {
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.delivery-info-item {
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  background-color: white;
+  transition: all 0.3s ease;
+}
+
+.delivery-info-item.selected {
+  border: 2px solid #1890ff;
+  background-color: #f6ffed;
+}
+
+.delivery-info-item.unselected {
+  border: 1px solid #f0f0f0;
+}
+
+.delivery-info-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.delivery-info-details {
+  flex: 1;
+}
+
+.delivery-info-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.delivery-info-name {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.delivery-info-default-tag {
+  margin-left: 12px;
+  font-size: 11px;
+}
+
+.delivery-info-phone {
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+  color: #666;
+}
+
+.delivery-info-address {
+  display: flex;
+  align-items: flex-start;
+  color: #666;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.delivery-info-selected-icon {
+  color: #52c41a;
+  font-size: 20px;
+  margin-top: 4px;
+}
+
+.delivery-scroll-indicator {
+  font-size: 12px;
+  color: #999;
+  text-align: center;
+  margin-top: 8px;
+  font-style: italic;
+}
+
+/* Voucher Section */
+.voucher-scrollable {
+  max-height: 350px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.voucher-item {
+  padding: 12px;
+  border: 1px solid #f0f0f0;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.voucher-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.voucher-name {
+  color: #ff6b35;
+  font-weight: bold;
+}
+
+.voucher-details {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #666;
+}
+
+.voucher-min-order {
+  margin-top: 2px;
+  font-size: 12px;
+  color: #666;
+}
+
+.voucher-discount {
+  color: #52c41a;
+  font-weight: bold;
+}
+
+.voucher-scroll-indicator {
+  font-size: 12px;
+  color: #999;
+  text-align: center;
+  margin-top: 8px;
+  font-style: italic;
+}
+
+.voucher-none {
+  padding: 12px;
+  border: 1px solid #f0f0f0;
+  border-radius: 6px;
+}
+
+/* Payment Method Section */
+.payment-method-item {
+  padding: 16px;
+  border-radius: 8px;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.payment-method-item.selected {
+  border: 2px solid #1890ff;
+  background-color: #f6ffed;
+}
+
+.payment-method-item.unselected {
+  border: 1px solid #f0f0f0;
+  background-color: white;
+}
+
+.payment-method-item.disabled {
+  opacity: 0.6;
+}
+
+.payment-method-content {
+  display: flex;
+  align-items: center;
+}
+
+.payment-method-icon {
+  font-size: 24px;
+  margin-right: 12px;
+}
+
+.payment-method-icon.cash {
+  color: #52c41a;
+}
+
+.payment-method-icon.online {
+  color: #1890ff;
+}
+
+.payment-method-title {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.payment-method-description {
+  margin-top: 4px;
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.payment-method-selected-icon {
+  color: #52c41a;
+  font-size: 20px;
+}
+
+/* Order Summary Section */
+.order-summary-card {
+  position: sticky;
+  top: 20px;
+}
+
+.order-summary-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.order-summary-discount {
+  color: #52c41a;
+}
+
+.order-summary-info-box {
+  padding: 12px;
+  border-radius: 6px;
+  margin-top: 12px;
+  margin-bottom: 12px;
+}
+
+.order-summary-payment-info {
+  background-color: #f8f9fa;
+}
+
+.order-summary-delivery-info {
+  background-color: #f0f9ff;
+}
+
+.order-summary-info-title {
+  color: #1890ff;
+  font-weight: bold;
+}
+
+.order-summary-info-details {
+  margin-top: 4px;
+}
+
+.order-summary-delivery-name {
+  font-size: 13px;
+  display: block;
+}
+
+.order-summary-delivery-address {
+  font-size: 12px;
+  color: #666;
+}
+
+.order-summary-total {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.order-summary-total-title {
+  margin: 0;
+}
+
+.order-summary-total-amount {
+  margin: 0;
+  color: #ff6b35;
+}
+
+.order-submit-button {
+  background: #ff6b35;
+  border-color: #ff6b35;
+  height: 48px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.order-warning-text {
+  font-size: 12px;
+  display: block;
+  margin-top: 12px;
+  text-align: center;
+  color: #fa8c16;
+}
+
+.order-terms-text {
+  font-size: 12px;
+  display: block;
+  margin-top: 12px;
+  text-align: center;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+/* Modal Styles */
+.delivery-modal-title {
+  margin-right: 8px;
+  color: #ff6b35;
+}
+
+.delivery-modal-content {
+  padding: 8px 0;
+}
+
+.delivery-modal-alert {
+  margin-bottom: 24px;
+}
+
+.delivery-modal-field-label {
+  margin-right: 6px;
+}
+
+.delivery-modal-actions {
+  margin-bottom: 0;
+  text-align: center;
+  margin-top: 24px;
+}
+
+.delivery-modal-cancel-btn {
+  margin-right: 12px;
+  min-width: 120px;
+}
+
+.delivery-modal-submit-btn {
+  background: #ff6b35;
+  border-color: #ff6b35;
+  min-width: 120px;
+}
+
+/* Header Styles */
+.create-order-header {
+  margin-bottom: 24px;
+}
+
+.create-order-back-btn {
+  margin-right: 12px;
+}
+
+.create-order-title {
+  margin: 0;
+}
+
+/* Card Styles */
+.create-order-card {
+  margin-bottom: 24px;
+}
+
+.create-order-card-title {
+  margin-right: 8px;
+}
+
+/* Loading and Empty States */
+.create-order-loading {
+  text-align: center;
+  padding: 50px;
+}
+
+.create-order-loading-text {
+  margin-top: 16px;
+}
+
+.create-order-empty {
+  text-align: center;
+  padding: 50px;
+}
+
+.create-order-empty-btn {
+  margin-top: 16px;
+}
+
+/* Add New Address Button */
+.add-address-btn {
+  color: #ff6b35;
+  border-color: #ff6b35;
+}
+
+.add-address-btn-primary {
+  background: #ff6b35;
+  border-color: #ff6b35;
+}
+
+/* Responsive Styles */
+@media (max-width: 768px) {
+  .delivery-info-scrollable {
+    max-height: 300px;
+  }
+  
+  .voucher-scrollable {
+    max-height: 250px;
+  }
+  
+  .products-scrollable {
+    max-height: 400px;
+  }
+  
+  .order-summary-card {
+    position: relative;
+    top: auto;
+  }
+}
+
+@media (max-width: 576px) {
+  .product-item {
+    padding: 12px;
+  }
+  
+  .delivery-info-item {
+    padding: 12px;
+  }
+  
+  .payment-method-item {
+    padding: 12px;
+  }
+  
+  .delivery-modal-cancel-btn,
+  .delivery-modal-submit-btn {
+    min-width: 100px;
+  }
+}
+
+/* Delivery Modal Styles */
+.delivery-modal-title {
+  margin-right: 8px;
+  color: #ff6b35;
+}
+
+.delivery-modal-content {
+  padding: 8px 0;
+}
+
+.delivery-modal-alert {
+  margin-bottom: 24px;
+}
+
+.delivery-modal-field-label {
+  margin-right: 6px;
+}
+
+.delivery-modal-actions {
+  margin-bottom: 0;
+  text-align: center;
+  margin-top: 24px;
+}
+
+.delivery-modal-cancel-btn {
+  margin-right: 12px;
+  min-width: 120px;
+}
+
+.delivery-modal-submit-btn {
+  background: #ff6b35;
+  border-color: #ff6b35;
+  min-width: 120px;
+}
