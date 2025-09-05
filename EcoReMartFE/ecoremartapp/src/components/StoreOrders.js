@@ -40,6 +40,16 @@ const StoreOrders = () => {
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [orderDetailVisible, setOrderDetailVisible] = useState(false);
     const [searchValue, setSearchValue] = useState('');
+    
+    // State quản lý phân trang
+    const [pagination, setPagination] = useState({
+        current: 1,
+        total: 0,
+        pageSize: null, // Sẽ được set từ backend
+        showSizeChanger: false, // Tắt tùy chọn thay đổi page size
+        showQuickJumper: true,
+        showTotal: (total, range) => `${range[0]}-${range[1]} của ${total} đơn hàng`,
+    });
 
     /**
      * Effect: Kiểm tra đăng nhập và tải dữ liệu ban đầu
@@ -49,21 +59,48 @@ const StoreOrders = () => {
             navigate('/login');
             return;
         }
+        console.log('Component mounted, loading initial data...');
         loadOrderStatuses();
-        loadOrders();
+        loadOrders(); // Load dữ liệu với cấu hình mặc định từ backend
     }, [isLoggedIn, navigate]);
 
     /**
-     * Effect: Lọc đơn hàng theo từ khóa tìm kiếm
+     * Effect: Debug pagination state  
      */
     useEffect(() => {
-        const filtered = searchValue.trim() 
-            ? orders.filter(order => 
-                order.order_code.toLowerCase().includes(searchValue.toLowerCase())
-              )
-            : orders;
-        setFilteredOrders(filtered);
-    }, [orders, searchValue]);
+        console.log('Pagination state updated:', pagination);
+        console.log('Orders length:', orders.length);
+        console.log('Filtered orders length:', filteredOrders.length);
+        
+        // Chỉ validate pagination khi có dữ liệu hợp lệ và không đang loading
+        if (!loading && pagination.total > 0 && pagination.pageSize > 0) {
+            const maxPages = Math.ceil(pagination.total / pagination.pageSize);
+            if (pagination.current > maxPages) {
+                console.warn(`Current page ${pagination.current} > max pages ${maxPages}, should be adjusted by loadOrders`);
+                // Không tự động điều chỉnh ở đây để tránh vòng lặp, để loadOrders xử lý
+            }
+        }
+    }, [pagination, orders.length, filteredOrders.length, loading]);
+
+    /**
+     * Effect: Tải lại dữ liệu khi thay đổi tìm kiếm
+     */
+    useEffect(() => {
+        const delayedSearch = setTimeout(() => {
+            console.log(`Search effect triggered: "${searchValue}"`);
+            if (searchValue.trim()) {
+                // Reset về trang 1 khi tìm kiếm
+                setPagination(prev => ({ ...prev, current: 1, total: 0 }));
+                loadOrders(activeTab === 'all' ? null : parseInt(activeTab), 1, searchValue.trim());
+            } else {
+                // Load lại dữ liệu không có search, reset về trang 1
+                setPagination(prev => ({ ...prev, current: 1, total: 0 }));
+                loadOrders(activeTab === 'all' ? null : parseInt(activeTab), 1);
+            }
+        }, 500); // Debounce 500ms
+
+        return () => clearTimeout(delayedSearch);
+    }, [searchValue, activeTab]); // Thêm activeTab vào dependency
 
     /**
      * Tải danh sách trạng thái đơn hàng
@@ -79,18 +116,107 @@ const StoreOrders = () => {
     };
 
     /**
-     * Tải danh sách đơn hàng theo trạng thái
+     * Tải danh sách đơn hàng theo trạng thái với phân trang
      * @param {number|null} statusId - ID trạng thái (null = tất cả)
+     * @param {number} page - Trang hiện tại
+     * @param {string} search - Từ khóa tìm kiếm
      */
-    const loadOrders = async (statusId = null) => {
+    const loadOrders = async (statusId = null, page = 1, search = '') => {
         try {
             setLoading(true);
-            const url = statusId ? `${endpoints.storeorders}?status=${statusId}` : endpoints.storeorders;
+            
+            // Xây dựng URL với các tham số phân trang
+            const params = new URLSearchParams();
+            
+            if (statusId) params.append('status', statusId);
+            if (page > 1) params.append('page', page); // Chỉ thêm page nếu > 1
+            if (search) params.append('search', search);
+            
+            const url = `${endpoints.storeorders}${params.toString() ? `?${params.toString()}` : ''}`;
+            console.log('Loading orders with URL:', url); // Debug log
+            
             const response = await authAPIs().get(url);
-            setOrders(response.data.results || response.data || []);
+            console.log('API Response:', response.data); // Debug log
+            
+            const data = response.data;
+            
+            // Xử lý response từ Django REST Framework pagination
+            if (data && typeof data === 'object' && data.results) {
+                // Response có phân trang theo chuẩn DRF
+                setOrders(data.results);
+                setFilteredOrders(data.results);
+                
+                const totalCount = data.count || 0;
+                const resultsLength = data.results.length;
+                
+                // Tính pageSize dựa trên thông tin từ response
+                let actualPageSize = pagination.pageSize;
+                
+                if (!actualPageSize) {
+                    // Lần đầu tiên, tính pageSize từ trang đầu
+                    if (page === 1 && resultsLength > 0) {
+                        actualPageSize = resultsLength;
+                    } else {
+                        // Fallback nếu không thể xác định
+                        actualPageSize = 10;
+                    }
+                } else if (page === 1 && resultsLength > 0 && resultsLength !== actualPageSize) {
+                    // Cập nhật pageSize nếu phát hiện thay đổi từ backend
+                    actualPageSize = resultsLength;
+                }
+                
+                // Đảm bảo current page không vượt quá số trang thực tế
+                const maxPages = totalCount > 0 ? Math.ceil(totalCount / actualPageSize) : 1;
+                
+                // Kiểm tra nếu trang yêu cầu vượt quá số trang thực tế
+                if (page > maxPages && maxPages > 0) {
+                    console.warn(`Requested page ${page} exceeds max pages ${maxPages}, redirecting to page ${maxPages}`);
+                    // Gọi lại với trang cuối cùng hợp lệ
+                    loadOrders(statusId, maxPages, search);
+                    return;
+                }
+                
+                const safePage = Math.min(page, maxPages);
+                
+                setPagination(prev => ({
+                    ...prev,
+                    current: safePage,
+                    pageSize: actualPageSize,
+                    total: totalCount,
+                }));
+                
+                console.log('Paginated data loaded:', {
+                    count: totalCount,
+                    requestedPage: page,
+                    safePage: safePage,
+                    maxPages: maxPages,
+                    actualPageSize: actualPageSize,
+                    resultsLength: resultsLength,
+                    isLastPage: page === maxPages,
+                    expectedItemsOnLastPage: totalCount % actualPageSize || actualPageSize
+                });
+                
+                // Nếu page được điều chỉnh, cần cập nhật URL
+                if (safePage !== page && totalCount > 0) {
+                    console.log(`Page adjusted from ${page} to ${safePage}`);
+                }
+            } else {
+                // Response đơn giản (array) - fallback
+                const ordersArray = Array.isArray(data) ? data : [];
+                setOrders(ordersArray);
+                setFilteredOrders(ordersArray);
+                setPagination(prev => ({
+                    ...prev,
+                    current: 1,
+                    total: ordersArray.length,
+                }));
+                console.log('Simple array data loaded:', ordersArray.length);
+            }
         } catch (error) {
             console.error("Error loading orders:", error);
             setOrders([]);
+            setFilteredOrders([]);
+            setPagination(prev => ({ ...prev, total: 0 }));
             messageApi.error("Không thể tải đơn hàng");
         } finally {
             setLoading(false);
@@ -100,10 +226,24 @@ const StoreOrders = () => {
     /**
      * Xử lý thay đổi tab
      */
-    const handleTabChange = (key) => {
+    const handleTabChange = async (key) => {
+        console.log(`Changing tab from ${activeTab} to ${key}`);
         setActiveTab(key);
         setSearchValue('');
-        loadOrders(key === 'all' ? null : parseInt(key));
+        
+        // Reset pagination hoàn toàn khi chuyển tab
+        setPagination(prev => ({ 
+            ...prev, 
+            current: 1,
+            total: 0,
+            pageSize: null // Reset page size để tính lại từ đầu
+        }));
+        
+        // Clear data trước khi load mới
+        setOrders([]);
+        setFilteredOrders([]);
+        
+        await loadOrders(key === 'all' ? null : parseInt(key), 1);
     };
 
     /**
@@ -133,6 +273,44 @@ const StoreOrders = () => {
     };
 
     /**
+     * Xử lý thay đổi phân trang
+     */
+    const handleTableChange = (newPagination, filters, sorter) => {
+        console.log('Table change:', { newPagination, filters, sorter }); // Debug log
+        
+        const { current } = newPagination;
+        const requestedPage = current || 1;
+        
+        // Kiểm tra nếu trang được yêu cầu hợp lệ dựa trên pageSize hiện tại
+        if (!pagination.pageSize || pagination.total <= 0) {
+            console.warn('No valid pageSize or total, skipping page change');
+            return;
+        }
+        
+        const maxPages = Math.ceil(pagination.total / pagination.pageSize);
+        const safePage = Math.min(Math.max(1, requestedPage), maxPages);
+        
+        console.log(`Page change: requested=${requestedPage}, safe=${safePage}, max=${maxPages}, pageSize=${pagination.pageSize}, total=${pagination.total}`);
+        
+        // Chỉ load nếu trang hợp lệ và khác trang hiện tại
+        if (safePage !== pagination.current && safePage >= 1 && safePage <= maxPages) {
+            // Cập nhật state pagination
+            setPagination(prev => ({ 
+                ...prev, 
+                current: safePage
+            }));
+            
+            // Load dữ liệu mới
+            loadOrders(
+                activeTab === 'all' ? null : parseInt(activeTab),
+                safePage,
+                searchValue.trim()
+            );
+        } else {
+            console.warn(`Invalid or same page requested: ${requestedPage}, current: ${pagination.current}, max: ${maxPages}`);
+        }
+    };
+    /**
      * Cập nhật trạng thái đơn hàng
      */
     const doUpdateStatus = async (orderId, statusId) => {
@@ -144,7 +322,13 @@ const StoreOrders = () => {
 
             const statusName = orderStatuses.find(s => s.id === statusId)?.status_name;
             messageApi.success(`Đã cập nhật trạng thái đơn hàng thành "${statusName}"`);
-            loadOrders(activeTab === 'all' ? null : parseInt(activeTab));
+            
+            // Reload orders for current tab với pagination hiện tại
+            await loadOrders(
+                activeTab === 'all' ? null : parseInt(activeTab),
+                pagination.current,
+                searchValue.trim()
+            );
         } catch (error) {
             console.error("Error updating status:", error);
             const errorMsg = error.response?.data?.detail || error.response?.data?.message;
@@ -698,9 +882,14 @@ const StoreOrders = () => {
                             placeholder="Tìm kiếm theo mã đơn hàng..."
                             value={searchValue}
                             onChange={(e) => setSearchValue(e.target.value)}
+                            onSearch={(value) => {
+                                console.log('Search triggered:', value);
+                                setSearchValue(value);
+                            }}
                             className="search-input"
                             allowClear
                             enterButton={<SearchOutlined />}
+                            loading={loading}
                         />
                     </Col>
                     {searchValue && (
@@ -717,9 +906,17 @@ const StoreOrders = () => {
                 </Row>
                 {searchValue && (
                     <div className="search-result-info">
-                        Tìm thấy {filteredOrders.length} đơn hàng với mã "{searchValue}"
+                        Tìm thấy {pagination.total} đơn hàng với mã "{searchValue}"
                     </div>
                 )}
+                {/* Debug info */}
+                <div style={{ marginTop: 8, fontSize: '12px', color: '#666' }}>
+                    Debug: Trang {pagination.current}/{Math.ceil(pagination.total / (pagination.pageSize || 1))} | 
+                    Tổng: {pagination.total} đơn hàng | 
+                    Hiển thị: {filteredOrders.length} đơn hàng | 
+                    PageSize: {pagination.pageSize || 'auto'} |
+                    Tab: {activeTab}
+                </div>
             </Card>
 
             {/* Orders Table with Tabs */}
@@ -732,11 +929,18 @@ const StoreOrders = () => {
                             loading={loading}
                             rowKey="id"
                             pagination={{
-                                pageSize: 10,
-                                showSizeChanger: true,
-                                showQuickJumper: true,
-                                showTotal: (total) => `Tổng ${total} đơn hàng`,
+                                current: pagination.current,
+                                total: pagination.total,
+                                pageSize: pagination.pageSize,
+                                showSizeChanger: false,
+                                showQuickJumper: false,
+                                hideOnSinglePage: pagination.total <= (pagination.pageSize || 0),
+                                showTotal: (total, range) => {
+                                    if (total === 0) return 'Không có đơn hàng';
+                                    return `${range[0]}-${range[1]} của ${total} đơn hàng`;
+                                }
                             }}
+                            onChange={handleTableChange}
                             scroll={{ x: 1000 }}
                             size="middle"
                             className="orders-table"
@@ -754,11 +958,18 @@ const StoreOrders = () => {
                                 loading={loading}
                                 rowKey="id"
                                 pagination={{
-                                    pageSize: 10,
-                                    showSizeChanger: true,
-                                    showQuickJumper: true,
-                                    showTotal: (total) => `Tổng ${total} đơn hàng`,
+                                    current: pagination.current,
+                                    total: pagination.total,
+                                    pageSize: pagination.pageSize,
+                                    showSizeChanger: false,
+                                    showQuickJumper: false,
+                                    hideOnSinglePage: pagination.total <= (pagination.pageSize || 0),
+                                    showTotal: (total, range) => {
+                                        if (total === 0) return 'Không có đơn hàng';
+                                        return `${range[0]}-${range[1]} của ${total} đơn hàng`;
+                                    }
                                 }}
+                                onChange={handleTableChange}
                                 scroll={{ x: 1000 }}
                                 size="middle"
                                 className="orders-table"

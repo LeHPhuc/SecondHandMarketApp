@@ -6,7 +6,7 @@ import {
 import { 
   EyeOutlined, UserOutlined, PhoneOutlined, EnvironmentOutlined, 
   CheckOutlined, CloseOutlined, SearchOutlined, ClearOutlined, ShopOutlined,
-  LinkOutlined, LeftOutlined, RightOutlined
+  LinkOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { authAPIs, endpoints } from '../configs/APIs';
@@ -30,11 +30,15 @@ const MyOrders = () => {
   const [orderDetailVisible, setOrderDetailVisible] = useState(false);
   const [searchValue, setSearchValue] = useState('');
   
-  // Pagination states - giống như Home.js
-  const [page, setPage] = useState(1);
-  const [next, setNext] = useState(false);
-  const [previous, setPrevious] = useState(false);
-  const [totalCount, setTotalCount] = useState(0);
+  // Pagination states - sử dụng object pagination như StoreOrders
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pageSize: null, // Sẽ được xác định từ response
+    total: 0,
+    showSizeChanger: false,
+    showQuickJumper: false,
+    showTotal: (total, range) => `${range[0]}-${range[1]} của ${total} đơn hàng`,
+  });
 
   // Kiểm tra đăng nhập
   useEffect(() => {
@@ -45,12 +49,28 @@ const MyOrders = () => {
     loadOrderStatuses();
   }, [user, navigate, messageApi]);
 
-  // Load orders khi tab, page hoặc search thay đổi - giống Home.js
+  // Load orders khi tab, pagination hoặc search thay đổi
   useEffect(() => {
     if (user && Object.keys(user).length > 0) {
       loadOrders();
     }
-  }, [activeTab, page, searchValue]);
+  }, [activeTab, pagination.current, searchValue]);
+
+  /**
+   * Effect: Debug pagination state
+   */
+  useEffect(() => {
+    console.log('MyOrders pagination state updated:', pagination);
+    console.log('Orders length:', orders.length);
+    
+    // Chỉ validate pagination khi có dữ liệu hợp lệ và không đang loading
+    if (!loading && pagination.total > 0 && pagination.pageSize > 0) {
+      const maxPages = Math.ceil(pagination.total / pagination.pageSize);
+      if (pagination.current > maxPages) {
+        console.warn(`Current page ${pagination.current} > max pages ${maxPages}, should be adjusted by loadOrders`);
+      }
+    }
+  }, [pagination, orders.length, loading]);
 
   // API calls
   const loadOrderStatuses = async () => {
@@ -65,7 +85,7 @@ const MyOrders = () => {
   const loadOrders = async () => {
     try {
       setLoading(true);
-      let url = `${endpoints.myorders}?page=${page}`;
+      let url = `${endpoints.myorders}?page=${pagination.current}`;
       
       // Thêm filter theo status nếu không phải tab "all"
       const statusId = activeTab === 'all' ? null : parseInt(activeTab);
@@ -81,20 +101,72 @@ const MyOrders = () => {
       const response = await authAPIs().get(url);
       const data = response.data;
       
-      console.log('Load orders response:', { page, activeTab, searchValue, data });
+      console.log('Load orders response:', { 
+        page: pagination.current, 
+        activeTab, 
+        searchValue, 
+        data 
+      });
       
-      // Xử lý response giống Home.js
-      setOrders(Array.isArray(data.results) ? data.results : []);
-      setNext(data.next !== null);
-      setPrevious(data.previous !== null);
-      setTotalCount(data.count || 0);
+      // Xử lý response với pagination cải tiến
+      if (data && typeof data === 'object' && data.results) {
+        const totalCount = data.count || 0;
+        const resultsLength = data.results.length;
+        
+        // Tính pageSize dựa trên thông tin từ response
+        let actualPageSize = pagination.pageSize;
+        
+        if (!actualPageSize) {
+          // Lần đầu tiên, tính pageSize từ trang đầu
+          if (pagination.current === 1 && resultsLength > 0) {
+            actualPageSize = resultsLength;
+          } else {
+            // Fallback nếu không thể xác định
+            actualPageSize = 10;
+          }
+        } else if (pagination.current === 1 && resultsLength > 0 && resultsLength !== actualPageSize) {
+          // Cập nhật pageSize nếu phát hiện thay đổi từ backend
+          actualPageSize = resultsLength;
+        }
+        
+        // Đảm bảo current page không vượt quá số trang thực tế
+        const maxPages = totalCount > 0 ? Math.ceil(totalCount / actualPageSize) : 1;
+        
+        // Kiểm tra nếu trang yêu cầu vượt quá số trang thực tế
+        if (pagination.current > maxPages && maxPages > 0) {
+          console.warn(`Requested page ${pagination.current} exceeds max pages ${maxPages}, redirecting to page ${maxPages}`);
+          // Gọi lại với trang cuối cùng hợp lệ
+          setPagination(prev => ({ ...prev, current: maxPages }));
+          return;
+        }
+        
+        const safePage = Math.min(pagination.current, maxPages);
+        
+        setOrders(Array.isArray(data.results) ? data.results : []);
+        setPagination(prev => ({
+          ...prev,
+          current: safePage,
+          pageSize: actualPageSize,
+          total: totalCount,
+        }));
+        
+        console.log('Paginated orders loaded:', {
+          count: totalCount,
+          pageSize: actualPageSize,
+          maxPages,
+          currentPage: safePage,
+          resultsLength
+        });
+      } else {
+        console.error('Invalid response structure:', data);
+        setOrders([]);
+        setPagination(prev => ({ ...prev, total: 0 }));
+      }
       
     } catch (error) {
       handleApiError(error, "Không thể tải đơn hàng");
       setOrders([]);
-      setNext(false);
-      setPrevious(false);
-      setTotalCount(0);
+      setPagination(prev => ({ ...prev, total: 0 }));
     } finally {
       setLoading(false);
     }
@@ -128,16 +200,48 @@ const MyOrders = () => {
     messageApi.error(errorMsg || defaultMessage);
   };
 
-  // Handle search - giống Home.js, reset về trang 1
+  // Handle search - reset về trang 1 khi search
   const handleSearch = (value) => {
     setSearchValue(value);
-    setPage(1); // Reset về trang 1 khi search
+    setPagination(prev => ({ ...prev, current: 1 })); // Reset về trang 1 khi search
   };
 
   const handleTabChange = (key) => {
     setActiveTab(key);
-    setPage(1); // Reset về trang 1 khi đổi tab
+    setPagination(prev => ({ ...prev, current: 1 })); // Reset về trang 1 khi đổi tab
     setSearchValue(''); // Clear search khi đổi tab
+  };
+
+  /**
+   * Xử lý thay đổi phân trang
+   */
+  const handleTableChange = (newPagination, filters, sorter) => {
+    console.log('Table change:', { newPagination, filters, sorter }); // Debug log
+    
+    const { current } = newPagination;
+    const requestedPage = current || 1;
+    
+    // Kiểm tra nếu trang được yêu cầu hợp lệ dựa trên pageSize hiện tại
+    if (!pagination.pageSize || pagination.total <= 0) {
+      console.warn('No valid pageSize or total, skipping page change');
+      return;
+    }
+    
+    const maxPages = Math.ceil(pagination.total / pagination.pageSize);
+    const safePage = Math.min(Math.max(1, requestedPage), maxPages);
+    
+    console.log(`Page change: requested=${requestedPage}, safe=${safePage}, max=${maxPages}, pageSize=${pagination.pageSize}, total=${pagination.total}`);
+    
+    // Chỉ load nếu trang hợp lệ và khác trang hiện tại
+    if (safePage !== pagination.current && safePage >= 1 && safePage <= maxPages) {
+      // Cập nhật state pagination
+      setPagination(prev => ({ 
+        ...prev, 
+        current: safePage
+      }));
+    } else {
+      console.warn(`Invalid or same page requested: ${requestedPage}, current: ${pagination.current}, max: ${maxPages}`);
+    }
   };
 
   const handleViewProduct = (productId) => {
@@ -377,7 +481,7 @@ const MyOrders = () => {
         
         {/* Thông tin phân trang */}
         <div style={{ marginTop: 8, color: '#666', fontSize: '13px' }}>
-          <div>Trang {page} • Tổng cộng {totalCount} đơn hàng</div>
+          <div>Trang {pagination.current} • Tổng cộng {pagination.total} đơn hàng</div>
           {searchValue && (
             <div>Đang tìm kiếm: "{searchValue}"</div>
           )}
@@ -393,39 +497,22 @@ const MyOrders = () => {
               columns={columns}
               loading={loading}
               rowKey="id"
-              pagination={false} // Không dùng pagination của Table
+              pagination={{
+                current: pagination.current,
+                total: pagination.total,
+                pageSize: pagination.pageSize,
+                showSizeChanger: false,
+                showQuickJumper: false,
+                hideOnSinglePage: pagination.total <= (pagination.pageSize || 0),
+                showTotal: (total, range) => {
+                  if (total === 0) return 'Không có đơn hàng';
+                  return `${range[0]}-${range[1]} của ${total} đơn hàng`;
+                }
+              }}
+              onChange={handleTableChange}
               scroll={{ x: 1000 }}
               size="middle"
             />
-            
-            {/* Custom Pagination - chỉ có mũi tên */}
-            {(previous || next) && (
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'center', 
-                alignItems: 'center', 
-                marginTop: 24,
-                gap: 16
-              }}>
-                <Button 
-                  icon={<LeftOutlined />}
-                  onClick={() => setPage(page - 1)}
-                  disabled={loading || !previous}
-                  size="large"
-                  shape="circle"
-                />
-                <span style={{ color: '#666', fontWeight: 500, fontSize: '14px' }}>
-                  {page}
-                </span>
-                <Button 
-                  icon={<RightOutlined />}
-                  onClick={() => setPage(page + 1)}
-                  disabled={loading || !next}
-                  size="large"
-                  shape="circle"
-                />
-              </div>
-            )}
           </TabPane>
           
           {orderStatuses.map((status) => (
@@ -438,39 +525,22 @@ const MyOrders = () => {
                 columns={columns}
                 loading={loading}
                 rowKey="id"
-                pagination={false} // Không dùng pagination của Table
+                pagination={{
+                  current: pagination.current,
+                  total: pagination.total,
+                  pageSize: pagination.pageSize,
+                  showSizeChanger: false,
+                  showQuickJumper: false,
+                  hideOnSinglePage: pagination.total <= (pagination.pageSize || 0),
+                  showTotal: (total, range) => {
+                    if (total === 0) return 'Không có đơn hàng';
+                    return `${range[0]}-${range[1]} của ${total} đơn hàng`;
+                  }
+                }}
+                onChange={handleTableChange}
                 scroll={{ x: 1000 }}
                 size="middle"
               />
-              
-              {/* Custom Pagination - chỉ có mũi tên */}
-              {(previous || next) && (
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'center', 
-                  alignItems: 'center', 
-                  marginTop: 24,
-                  gap: 16
-                }}>
-                  <Button 
-                    icon={<LeftOutlined />}
-                    onClick={() => setPage(page - 1)}
-                    disabled={loading || !previous}
-                    size="large"
-                    shape="circle"
-                  />
-                  <span style={{ color: '#666', fontWeight: 500, fontSize: '14px' }}>
-                    {page}
-                  </span>
-                  <Button 
-                    icon={<RightOutlined />}
-                    onClick={() => setPage(page + 1)}
-                    disabled={loading || !next}
-                    size="large"
-                    shape="circle"
-                  />
-                </div>
-              )}
             </TabPane>
           ))}
         </Tabs>

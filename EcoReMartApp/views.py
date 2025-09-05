@@ -802,7 +802,7 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         # Phân trang
         from EcoReMartApp.paginators import ProductPaginator
-        paginator = ProductPaginator()
+        paginator = OrderPaginator()
         page = paginator.paginate_queryset(orders, request)
 
         if page is not None:
