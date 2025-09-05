@@ -1,0 +1,19 @@
+{% extends "admin/base.html" %}
+{% load static %}
+{% block title %}EcoReMart Admin{% endblock %}
+{% block branding %}
+<h1 id="site-name"><a href="{% url 'admin:index' %}">EcoReMart Admin</a></h1>
+{% endblock %}
+{% block nav-global %}
+<style>
+.admin-quick-menu{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0 4px;}
+.admin-quick-menu a{background:#0d6efd;color:#fff;padding:6px 10px;border-radius:4px;
+text-decoration:none;font-size:13px;line-height:1.2;}
+.admin-quick-menu a:hover{background:#094eab;}
+</style>
+<div class="admin-quick-menu">
+  <a href="{% url 'admin:pending_products' %}">Duyệt sản phẩm</a>
+  <a href="{% url 'admin:top_stores_report' %}">Top Cửa hàng</a>
+  <a href="{% url 'admin:top_products_report' %}">Top Sản phẩm</a>
+</div>
+{% endblock %}

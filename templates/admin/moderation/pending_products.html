@@ -1,0 +1,37 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<h1>{{ title }}</h1>
+{% if products %}
+<table class="adminlist">
+  <thead>
+    <tr>
+      <th>#</th><th>Ảnh</th><th>Tên</th><th>Cửa hàng</th><th>Giá</th><th>Ngày tạo</th><th>Hành động</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for p in products %}
+    {% with img=p.images.first %}
+    <tr>
+      <td>{{ forloop.counter }}</td>
+      <td>
+        {% if img and img.image %}
+          <img src="{{ img.image.url }}" style="width:55px;height:55px;object-fit:cover;border-radius:4px;" />
+        {% else %}—{% endif %}
+      </td>
+      <td><a href="{% url 'admin:EcoReMartApp_product_change' p.id %}">{{ p.name }}</a></td>
+      <td>{{ p.store.name }}</td>
+      <td>{{ p.price }}</td>
+      <td>{{ p.created_date|date:"Y-m-d H:i" }}</td>
+      <td>
+        <a class="button" href="{% url 'admin:approve_product' p.id %}">Duyệt</a>
+        <a class="deletelink" href="{% url 'admin:delete_product' p.id %}">Xóa</a>
+      </td>
+    </tr>
+    {% endwith %}
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>Không có sản phẩm chờ duyệt.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,351 @@
+/* Payment Result Pages Styles */
+.payment-result-container {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.payment-result-card {
+    background: white;
+    border-radius: 16px;
+    padding: 40px;
+    max-width: 600px;
+    width: 100%;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    animation: slideUp 0.6s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Result Icons */
+.result-icon {
+    font-size: 4rem;
+    margin-bottom: 20px;
+    display: inline-block;
+    animation: bounce 1s ease-in-out;
+}
+
+@keyframes bounce {
+    0%, 20%, 50%, 80%, 100% {
+        transform: translateY(0);
+    }
+    40% {
+        transform: translateY(-10px);
+    }
+    60% {
+        transform: translateY(-5px);
+    }
+}
+
+.success-icon {
+    color: #28a745;
+}
+
+.error-icon, .cancel-icon {
+    color: #dc3545;
+}
+
+/* Typography */
+.payment-result-card h2 {
+    color: #333;
+    margin-bottom: 10px;
+    font-size: 1.8rem;
+    font-weight: 600;
+}
+
+.payment-result-card p {
+    color: #666;
+    margin-bottom: 30px;
+    font-size: 1.1rem;
+    line-height: 1.6;
+}
+
+/* Order Summary */
+.order-summary {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 25px;
+    margin: 25px 0;
+    text-align: left;
+}
+
+.order-summary h4 {
+    color: #333;
+    margin-bottom: 15px;
+    font-size: 1.2rem;
+    text-align: center;
+    border-bottom: 2px solid #dee2e6;
+    padding-bottom: 10px;
+}
+
+.summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.summary-row:last-child {
+    border-bottom: none;
+    margin-top: 10px;
+    padding-top: 15px;
+    border-top: 2px solid #dee2e6;
+}
+
+.summary-row span:first-child {
+    color: #666;
+    font-weight: 500;
+}
+
+.summary-row span:last-child {
+    color: #333;
+}
+
+.status-paid {
+    color: #28a745 !important;
+    font-weight: 600 !important;
+}
+
+.status-pending {
+    color: #ffc107 !important;
+    font-weight: 600 !important;
+}
+
+/* Next Steps & Info */
+.next-steps, .cancellation-info {
+    background: #e3f2fd;
+    border-radius: 12px;
+    padding: 20px;
+    margin: 25px 0;
+    text-align: left;
+}
+
+.next-steps h4, .cancellation-info h4 {
+    color: #1976d2;
+    margin-bottom: 15px;
+    font-size: 1.1rem;
+    text-align: center;
+}
+
+.next-steps ul, .cancellation-info ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.next-steps li, .cancellation-info li {
+    padding: 8px 0;
+    color: #333;
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+/* Action Buttons */
+.result-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 30px;
+}
+
+.result-actions button {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-block;
+    min-width: 140px;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+.btn-secondary {
+    background: white;
+    color: #666;
+    border: 2px solid #dee2e6;
+}
+
+.btn-secondary:hover {
+    background: #f8f9fa;
+    border-color: #adb5bd;
+    transform: translateY(-1px);
+}
+
+/* Loading Spinner */
+.loading-spinner {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid #f3f3f3;
+    border-top: 5px solid #667eea;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-spinner h3 {
+    color: #333;
+    margin-bottom: 10px;
+    font-size: 1.4rem;
+}
+
+.loading-spinner p {
+    color: #666;
+    font-size: 1rem;
+}
+
+/* Card States */
+.payment-result-card.success {
+    border-top: 5px solid #28a745;
+}
+
+.payment-result-card.error {
+    border-top: 5px solid #dc3545;
+}
+
+.payment-result-card.cancel {
+    border-top: 5px solid #ffc107;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .payment-result-container {
+        padding: 15px;
+    }
+    
+    .payment-result-card {
+        padding: 30px 20px;
+    }
+    
+    .result-icon {
+        font-size: 3rem;
+    }
+    
+    .payment-result-card h2 {
+        font-size: 1.5rem;
+    }
+    
+    .payment-result-card p {
+        font-size: 1rem;
+    }
+    
+    .result-actions {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .result-actions button {
+        width: 100%;
+        max-width: 200px;
+    }
+    
+    .order-summary {
+        padding: 20px;
+    }
+    
+    .summary-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+    
+    .summary-row span:last-child {
+        align-self: flex-end;
+    }
+}
+
+/* Payment Actions */
+.payment-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 24px;
+}
+
+.payment-actions button {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 120px;
+}
+
+.btn-primary {
+    background: #1890ff;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #40a9ff;
+    transform: translateY(-1px);
+}
+
+.btn-secondary {
+    background: #f5f5f5;
+    color: #666;
+}
+
+.btn-secondary:hover {
+    background: #e6e6e6;
+    transform: translateY(-1px);
+}
+
+@media (max-width: 480px) {
+    .payment-result-card {
+        padding: 25px 15px;
+    }
+    
+    .result-icon {
+        font-size: 2.5rem;
+    }
+    
+    .payment-result-card h2 {
+        font-size: 1.3rem;
+    }
+    
+    .payment-actions {
+        flex-direction: column;
+        gap: 8px;
+    }
+}

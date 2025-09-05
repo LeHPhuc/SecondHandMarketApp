@@ -39,6 +39,11 @@ const CreateOrder = () => {
   const [paymentMethod, setPaymentMethod] = useState('cash payment'); // Default to cash payment
   const [showDeliveryModal, setShowDeliveryModal] = useState(false); // Modal state
   const [addingDelivery, setAddingDelivery] = useState(false); // Loading state cho modal
+  const [shipFee, setShipFee] = useState(0);
+  const [calculatingShipFee, setCalculatingShipFee] = useState(false);
+  const [shipFeeError, setShipFeeError] = useState('');
+  const [distanceKm, setDistanceKm] = useState(0);
+  const [storeInfo, setStoreInfo] = useState(null);
 
   // Check authentication
   const isLoggedIn = user && Object.keys(user).length > 0;
@@ -140,20 +145,113 @@ const CreateOrder = () => {
     return Math.min(discountAmount, voucher.max_discount_amount || discountAmount);
   };
 
-  // Calculate final total
-  const calculateTotal = () => calculateSubtotal() - calculateDiscount();
+  // Function to calculate ship fee - UPDATED
+  const calculateShipFeeApi = async (deliveryInfoId, productIds) => {
+    if (!deliveryInfoId || !productIds || productIds.length === 0) {
+      setShipFee(0);
+      setShipFeeError('');
+      setDistanceKm(0);
+      setStoreInfo(null);
+      return;
+    }
+
+    // Check if we have delivery info
+    const selectedInfo = deliveryInfos.find(info => info.id === deliveryInfoId);
+    if (!selectedInfo) {
+      setShipFeeError('Không tìm thấy thông tin giao hàng');
+      return;
+    }
+
+    try {
+      setCalculatingShipFee(true);
+      setShipFeeError('');
+
+      console.log('🚚 Calculating ship fee with:', {
+        delivery_info_id: deliveryInfoId,
+        product_id: productIds[0], // Chỉ gửi product đầu tiên
+        endpoint: endpoints.calculateShipFee
+      });
+
+      // Chỉ gửi 1 product_id thay vì mảng product_ids
+      const response = await authAPIs().post(endpoints.calculateShipFee, {
+        delivery_info_id: deliveryInfoId,
+        product_id: productIds[0] // Chỉ gửi product đầu tiên
+      });
+
+      console.log('🚚 Ship fee response:', response.data);
+
+      // Check if response has ship_fee (API trả về {ship_fee: 60742})
+      if (response.data && response.data.ship_fee !== undefined) {
+        setShipFee(response.data.ship_fee);
+        setDistanceKm(response.data.distance_km || 0);
+        setStoreInfo({
+          name: response.data.store_name || 'Cửa hàng',
+          address: response.data.start_address || ''
+        });
+        setShipFeeError('');
+        console.log('✅ Ship fee calculated successfully:', response.data.ship_fee);
+      } else {
+        throw new Error(response.data.error || 'Không thể tính phí ship');
+      }
+
+    } catch (error) {
+      console.error('🚚 Ship fee calculation error:', error);
+      console.log('🚚 Error response:', error.response?.data);
+      console.log('🚚 Error status:', error.response?.status);
+      
+      setShipFee(0);
+      setDistanceKm(0);
+      setStoreInfo(null);
+      
+      let errorMessage = 'Không thể tính phí ship';
+      if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      console.log('🚚 Final error message:', errorMessage);
+      setShipFeeError(errorMessage);
+    } finally {
+      setCalculatingShipFee(false);
+    }
+  };
+
+  // Auto calculate ship fee when delivery info or products change
+  useEffect(() => {
+    if (selectedDeliveryInfo && selectedProducts.length > 0) {
+      const productIds = selectedProducts.map(item => item.product.id);
+      calculateShipFeeApi(selectedDeliveryInfo, productIds);
+    } else {
+      // Reset ship fee khi không có đủ thông tin
+      setShipFee(0);
+      setShipFeeError('');
+      setDistanceKm(0);
+      setStoreInfo(null);
+    }
+  }, [selectedDeliveryInfo, selectedProducts]);
+
+  // Handle delivery info change with ship fee recalculation
+  const handleDeliveryInfoChange = (value) => {
+    setSelectedDeliveryInfo(value);
+    // Ship fee sẽ được tính lại trong useEffect
+  };
+
+  // Calculate final total with ship fee
+  const calculateTotal = () => calculateSubtotal() - calculateDiscount() + shipFee;
 
   // Handle payment method change
   const handlePaymentMethodChange = (value) => {
     setPaymentMethod(value);
     
     if (value === 'online payment') {
-      message.info('Tính năng thanh toán online đang được phát triển. Hiện tại vui lòng chọn thanh toán tiền mặt.');
+      message.success('Thanh toán online đã sẵn sàng!');
+    } else {
+      message.info('COD được chọn. Thanh toán khi nhận hàng.');
     }
   };
-
-  // Handle delivery info change
-  const handleDeliveryInfoChange = (value) => setSelectedDeliveryInfo(value);
 
   // Handle voucher change
   const handleVoucherChange = (value) => setSelectedVoucher(value);
@@ -230,8 +328,37 @@ const CreateOrder = () => {
     deliveryForm.resetFields();
   };
 
-  // Handle order submission
-  const handleSubmitOrder = async () => {
+  // ===== PAYOS PAYMENT FUNCTIONS =====
+  const createPayOSPayment = async (order) => {
+    try {
+      const payosEndpoint = endpoints.createPayOSPayment.replace('{id}', order.id);
+      const response = await authAPIs().post(payosEndpoint);
+      
+      if (response.data && response.data.success) {
+        // Lưu thông tin PayOS
+        localStorage.setItem('current_order_id', order.id);
+        localStorage.setItem('payos_order_code', response.data.payos_order_code);
+        
+        return {
+          success: true,
+          payment_url: response.data.payment_url,
+          qr_code: response.data.qr_code,
+          amount: response.data.amount,
+          payos_order_code: response.data.payos_order_code,
+          expires_in: response.data.expires_in,
+          instructions: response.data.instructions
+        };
+      } else {
+        throw new Error(response.data?.error || 'PayOS response không thành công');
+      }
+    } catch (error) {
+      console.error('PayOS API error:', error);
+      throw error;
+    }
+  };
+
+  // ===== HANDLE COD ORDER SUBMISSION =====
+  const handleCODOrder = async () => {
     try {
       await form.validateFields();
       
@@ -242,7 +369,7 @@ const CreateOrder = () => {
 
       setSubmitting(true);
 
-      // Prepare order data
+      // Prepare COD order data
       const orderData = {
         items: selectedProducts.map(item => ({
           product: item.product.id,
@@ -250,56 +377,141 @@ const CreateOrder = () => {
         })),
         delivery_info_id: selectedDeliveryInfo,
         note: orderNote,
-        payment_method: paymentMethod
+        payment_method: 'cash payment' // COD payment
       };
 
       if (selectedVoucher) {
         orderData.voucher = selectedVoucher;
       }
 
+      // Tạo đơn hàng COD
       const response = await authAPIs().post(endpoints.order, orderData);
+      const order = response.data;
       
       modal.success({
         title: 'Đặt hàng thành công!',
         content: (
           <div>
             <p>Đơn hàng của bạn đã được tạo thành công.</p>
-            <p>Mã đơn hàng: <strong>{response.data.order_code}</strong></p>
+            <p>Mã đơn hàng: <strong>{order.order_code}</strong></p>
             <hr style={{ margin: '12px 0', border: 'none', borderTop: '1px solid #f0f0f0' }} />
             <div style={{ fontSize: '14px', color: '#666' }}>
-              <p>
-                <DollarOutlined style={{ marginRight: '8px', color: '#52c41a' }} />
-                Phương thức thanh toán: <strong>
-                  {paymentMethod === 'cash payment' ? 'Tiền mặt (COD)' : 'Thanh toán online'}
-                </strong>
-              </p>
-              <p style={{ marginBottom: 0 }}>
-                <EnvironmentOutlined style={{ marginRight: '8px', color: '#1890ff' }} />
-                Tổng giá trị: <strong style={{ color: '#ff6b35' }}>
-                  {calculateTotal().toLocaleString()}đ
-                </strong>
-              </p>
+              <p>💰 Thanh toán: <strong>COD (Thanh toán khi nhận hàng)</strong></p>
+              <p>💵 Tổng tiền: <strong style={{ color: '#f56500' }}>{order.total_cost?.toLocaleString() || calculateTotal().toLocaleString()} VND</strong></p>
+              <p>📞 Người bán sẽ liên hệ xác nhận đơn hàng trong thời gian sớm nhất.</p>
             </div>
           </div>
         ),
-        width: 450,
-        onOk: () => navigate('/myorders')
+        onOk: () => {
+          navigate('/myorders');
+        },
+        okText: 'Xem đơn hàng',
+        width: 500,
       });
 
     } catch (error) {
-      console.error('Error creating order:', error);
-      
-      let errorMessage = 'Không thể tạo đơn hàng';
+      console.error('COD order creation error:', error);
+      let errorMessage = 'Không thể tạo đơn hàng COD';
       
       if (error.response?.data) {
         const errorData = error.response.data;
         if (typeof errorData === 'string') {
           errorMessage = errorData;
-        } else if (errorData.error) {
-          errorMessage = errorData.error;
         } else if (errorData.detail) {
           errorMessage = errorData.detail;
+        } else if (errorData.error) {
+          errorMessage = errorData.error;
         }
+      }
+      
+      message.error(errorMessage);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ===== HANDLE PAYOS ORDER SUBMISSION =====
+  const handlePayOSOrder = async () => {
+    try {
+      await form.validateFields();
+      
+      if (!selectedDeliveryInfo) {
+        message.error('Vui lòng chọn địa chỉ giao hàng');
+        return;
+      }
+
+      setSubmitting(true);
+
+      // Prepare PayOS order data
+      const orderData = {
+        items: selectedProducts.map(item => ({
+          product: item.product.id,
+          quantity: item.quantity
+        })),
+        delivery_info_id: selectedDeliveryInfo,
+        note: orderNote,
+        payment_method: 'online payment' // PayOS payment
+      };
+
+      if (selectedVoucher) {
+        orderData.voucher = selectedVoucher;
+      }
+
+      // 1. TẠO ĐƠN HÀNG TRƯỚC
+      const response = await authAPIs().post(endpoints.order, orderData);
+      const order = response.data;
+      
+      // 2. TẠO PAYOS PAYMENT LINK
+      const payosResult = await createPayOSPayment(order);
+      
+      if (payosResult.success && payosResult.payment_url) {
+        // Lưu order ID để PaymentSuccess/PaymentCancel sử dụng
+        localStorage.setItem('current_order_id', order.id.toString());
+        localStorage.setItem('payos_order_code', payosResult.payos_order_code || order.id);
+        
+        // Hiển thị thông báo
+        message.success({
+          content: 'Đang chuyển đến trang thanh toán online...',
+          duration: 2,
+        });
+        
+        // Redirect đến PayOS
+        setTimeout(() => {
+          window.location.href = payosResult.payment_url;
+        }, 1500);
+        
+      } else {
+        // PayOS thất bại
+        localStorage.setItem('current_order_id', order.id.toString());
+        localStorage.setItem('payos_order_code', order.id.toString());
+        
+        message.error({
+          content: 'Không thể tạo payment link. Đang chuyển đến trang hủy...',
+          duration: 2,
+        });
+        
+        setTimeout(() => {
+          window.location.href = `/payment-cancel/${order.id}`;
+        }, 1500);
+        
+        return;
+      }
+
+    } catch (error) {
+      console.error('PayOS order creation error:', error);
+      let errorMessage = 'Không thể tạo đơn hàng thanh toán online';
+      
+      if (error.response?.data) {
+        const errorData = error.response.data;
+        if (typeof errorData === 'string') {
+          errorMessage = errorData;
+        } else if (errorData.detail) {
+          errorMessage = errorData.detail;
+        } else if (errorData.error) {
+          errorMessage = errorData.error;
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
       }
       
       message.error(errorMessage);
@@ -473,7 +685,7 @@ const CreateOrder = () => {
       <Row gutter={[24, 24]}>
         {/* Order Details */}
         <Col xs={24} lg={16}>
-          <Form form={form} layout="vertical" onFinish={handleSubmitOrder}>
+          <Form form={form} layout="vertical">{/* Form không cần onFinish vì sử dụng onClick cho buttons */}
             {/* Products Section */}
             <Card title={
               <span>
@@ -627,8 +839,7 @@ const CreateOrder = () => {
                         width: '100%',
                         display: 'flex',
                         justifyContent: 'space-between',
-                        alignItems: 'center',
-                        opacity: 0.6
+                        alignItems: 'center'
                       }}>
                         <div style={{ display: 'flex', alignItems: 'center' }}>
                           <BankOutlined style={{ fontSize: '24px', color: '#1890ff', marginRight: '12px' }} />
@@ -636,7 +847,7 @@ const CreateOrder = () => {
                             <Text strong style={{ fontSize: '16px' }}>Thanh toán online</Text>
                             <div style={{ marginTop: '4px' }}>
                               <Text type="secondary" style={{ fontSize: '12px' }}>
-                                Ví điện tử, thẻ ngân hàng (Đang phát triển)
+                                Chuyển khoản qua trang thanh toán online
                               </Text>
                             </div>
                           </div>
@@ -649,16 +860,6 @@ const CreateOrder = () => {
                   </Space>
                 </Radio.Group>
               </Form.Item>
-              
-              {paymentMethod === 'online payment' && (
-                <Alert
-                  message="Tính năng đang phát triển"
-                  description="Thanh toán online hiện đang được phát triển. Vui lòng chọn thanh toán tiền mặt để hoàn tất đơn hàng."
-                  type="warning"
-                  showIcon
-                  style={{ marginTop: '12px' }}
-                />
-              )}
             </Card>
 
             {/* Voucher Section */}
@@ -757,10 +958,86 @@ const CreateOrder = () => {
                 </div>
               )}
               
+              {/* Ship Fee Section - UPDATED */}
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <Text>Phí vận chuyển:</Text>
-                <Text style={{ color: '#666' }}>Tính khi đặt hàng</Text>
+                <Text>
+                  <ShoppingCartOutlined style={{ marginRight: '4px' }} />
+                  Phí vận chuyển:
+                  {distanceKm > 0 && (
+                    <Text type="secondary" style={{ fontSize: '11px', marginLeft: '4px' }}>
+                      (~{distanceKm}km)
+                    </Text>
+                  )}
+                </Text>
+                <div style={{ textAlign: 'right' }}>
+                  {calculatingShipFee ? (
+                    <Spin size="small" />
+                  ) : shipFeeError ? (
+                    <Text type="danger" style={{ fontSize: '12px' }}>
+                      Chưa thể tính
+                    </Text>
+                  ) : (
+                    <Text strong style={{ color: shipFee > 0 ? '#f56500' : '#52c41a' }}>
+                      {shipFee > 0 ? `${shipFee.toLocaleString()}đ` : 'Miễn phí'}
+                    </Text>
+                  )}
+                </div>
               </div>
+
+              {/* Ship Fee Error Alert */}
+              {shipFeeError && (
+                <Alert
+                  message="⚠️ Phí vận chuyển"
+                  description={shipFeeError}
+                  type="warning"
+                  size="small"
+                  showIcon
+                  style={{ marginBottom: '12px', fontSize: '12px' }}
+                  action={
+                    <Button
+                      size="small"
+                      type="link"
+                      onClick={() => {
+                        if (selectedDeliveryInfo && selectedProducts.length > 0) {
+                          const productIds = selectedProducts.map(item => item.product.id);
+                          calculateShipFeeApi(selectedDeliveryInfo, productIds);
+                        }
+                      }}
+                    >
+                      Thử lại
+                    </Button>
+                  }
+                />
+              )}
+
+              {/* Shipping Info */}
+              {shipFee > 0 && !shipFeeError && storeInfo && (
+                <div style={{ 
+                  padding: '8px 12px', 
+                  backgroundColor: '#fff7e6', 
+                  borderRadius: '6px', 
+                  marginBottom: '12px',
+                  border: '1px solid #ffd666'
+                }}>
+                  <Text style={{ fontSize: '12px', color: '#d48806' }}>
+                    🚚 Từ <strong>{storeInfo.name}</strong> đến địa chỉ của bạn: <strong>{distanceKm}km</strong>
+                  </Text>
+                </div>
+              )}
+
+              {shipFee === 0 && !calculatingShipFee && !shipFeeError && selectedDeliveryInfo && (
+                <div style={{ 
+                  padding: '8px 12px', 
+                  backgroundColor: '#f6ffed', 
+                  borderRadius: '6px', 
+                  marginBottom: '12px',
+                  border: '1px solid #b7eb8f'
+                }}>
+                  <Text style={{ fontSize: '12px', color: '#389e0d' }}>
+                    🎉 <strong>Miễn phí vận chuyển!</strong> {distanceKm > 0 && `(Khoảng cách: ${distanceKm}km)`}
+                  </Text>
+                </div>
+              )}
               
               {/* Payment Method Summary */}
               <div style={{ 
@@ -779,7 +1056,7 @@ const CreateOrder = () => {
                   ) : (
                     <>
                       <BankOutlined style={{ marginRight: '6px' }} />
-                      Thanh toán online
+                      Thanh toán online (PayOS)
                     </>
                   )}
                 </Text>
@@ -787,7 +1064,7 @@ const CreateOrder = () => {
                   <Text style={{ fontSize: '12px', color: '#666' }}>
                     {paymentMethod === 'cash payment' 
                       ? 'Thanh toán khi nhận hàng'
-                      : 'Đang phát triển'
+                      : 'Chuyển khoản qua PayOS'
                     }
                   </Text>
                 </div>
@@ -829,28 +1106,65 @@ const CreateOrder = () => {
               </Title>
             </div>
 
-            <Button
-              type="primary"
-              size="large"
-              block
-              icon={<CheckCircleOutlined />}
-              loading={submitting}
-              onClick={handleSubmitOrder}
-              disabled={!selectedDeliveryInfo || (paymentMethod === 'online payment')}
-              className="order-submit-btn"
-            >
-              {submitting ? 'Đang xử lý...' : paymentMethod === 'cash payment' ? 'Đặt hàng (COD)' : 'Đặt hàng'}
-            </Button>
+            {/* 2 NÚT THANH TOÁN RIÊNG BIỆT - UPDATED với ship fee validation */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {paymentMethod === 'cash payment' && (
+                <Button
+                  type="primary"
+                  size="large"
+                  block
+                  icon={<DollarOutlined />}
+                  loading={submitting || calculatingShipFee}
+                  onClick={handleCODOrder}
+                  disabled={!selectedDeliveryInfo || !!shipFeeError}
+                  className="order-submit-btn cod-btn"
+                  style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
+                >
+                  {submitting ? 'Đang tạo đơn hàng...' : 
+                   calculatingShipFee ? 'Đang tính phí ship...' : 
+                   '💰 Đặt hàng COD'}
+                </Button>
+              )}
+              
+              {paymentMethod === 'online payment' && (
+                <Button
+                  type="primary"
+                  size="large"
+                  block
+                  icon={<CreditCardOutlined />}
+                  loading={submitting || calculatingShipFee}
+                  onClick={handlePayOSOrder}
+                  disabled={!selectedDeliveryInfo || !!shipFeeError}
+                  className="order-submit-btn payos-btn"
+                  style={{ backgroundColor: '#1890ff', borderColor: '#1890ff' }}
+                >
+                  {submitting ? 'Đang tạo đơn hàng...' : 
+                   calculatingShipFee ? 'Đang tính phí ship...' : 
+                   '💳 Thanh toán online'}
+                </Button>
+              )}
+            </div>
 
+            {/* Payment method info với ship fee */}
             {paymentMethod === 'online payment' && (
-              <Text type="secondary" style={{ 
-                fontSize: '12px', 
-                display: 'block', 
-                marginTop: '12px', 
-                textAlign: 'center',
-                color: '#fa8c16'
-              }}>
-                ⚠️ Vui lòng chọn thanh toán tiền mặt để hoàn tất đơn hàng
+              <Alert
+                message="💡 Thanh toán online"
+                description="Hệ thống sẽ tự động tính hoa hồng khi thanh toán thành công"
+                type="info"
+                showIcon
+                style={{ marginTop: '16px' }}
+              />
+            )}
+
+            {/* Shipping calculation note */}
+            {selectedDeliveryInfo && !shipFeeError && (
+              <Text type="secondary" style={{ fontSize: '12px', display: 'block', marginTop: '12px', textAlign: 'center' }}>
+                {calculatingShipFee 
+                  ? '🔄 Đang tính phí vận chuyển...'
+                  : shipFee > 0 
+                    ? `💡 Phí ship đã được tính tự động dựa trên khoảng cách ${distanceKm}km` 
+                    : '🎉 Miễn phí vận chuyển!'
+                }
               </Text>
             )}
 

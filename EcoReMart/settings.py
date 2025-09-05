@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 
 from django.conf.global_settings import MEDIA_ROOT
+from django.contrib import staticfiles
 
 import EcoReMartApp
 
@@ -61,6 +62,13 @@ CLOUDINARY_STORAGE = {
     'API_SECRET': env("CLOUDINARY_API_SECRET"),
 }
 
+
+PAYOS_CLIENT_ID=env("PAYOS_CLIENT_ID")
+PAYOS_API_KEY=env("PAYOS_API_KEY")
+PAYOS_CHECKSUM_KEY=env("PAYOS_CHECKSUM_KEY")
+PAYOS_ENVIRONMENT = "sandbox"
+PAYOS_RETURN_URL = "http://localhost:3000/payment-success"
+PAYOS_CANCEL_URL = "http://localhost:3000/payment-cancel"
 cloudinary.config(
   cloud_name = env("CLOUDINARY_CLOUD_NAME"),
   api_key = env("CLOUDINARY_API_KEY"),
@@ -98,13 +106,18 @@ ROOT_URLCONF = 'EcoReMart.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [
+            BASE_DIR / "EcoReMartApp/../templates",
+            BASE_DIR / "EcoReMartApp" / "EcoReMartApp/../templates",  # thêm dòng này
+        ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'django.template.context_processors.debug',   # thêm (tùy chọn)
+                'django.template.context_processors.static',  # thêm (tùy chọn)
             ],
         },
     },
@@ -161,9 +174,15 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+# STATIC_URL = 'static/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# Static files (CSS, JavaScript, Images)
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+

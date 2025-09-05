@@ -4,9 +4,7 @@ from itertools import product
 from cloudinary.utils import cloudinary_url
 from django.http import HttpResponse
 from rest_framework import viewsets,permissions,generics,status
-from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from EcoReMartApp.models import *
@@ -23,6 +21,17 @@ from collections import defaultdict
 from decimal import Decimal
 from EcoReMartApp.location import get_directions_distance,ship_fee_cost
 from EcoReMart import settings
+import pandas as pd
+from django.utils import timezone
+from datetime import datetime
+from .payos_service import PayOSService
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework import status
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+import json
+
 def index(request):
     return HttpResponse("Hello, world. You're at the polls index.")
 DEFAULT_AVATAR_URL = "https://res.cloudinary.com/dxouh8fmh/image/upload/v1754149807/avt_bvs35c.png"
@@ -201,22 +210,22 @@ class ProductViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIV
                 return Response({"error": "Thiếu rating"}, status=status.HTTP_400_BAD_REQUEST)
             if Comment.objects.filter(product=product, user=request.user).exists():
                 return Response({"error": "Bạn đã đánh giá sản phẩm này rồi"}, status=status.HTTP_400_BAD_REQUEST)
-            # # Kiểm tra đơn hàng của user với trạng thái "Đơn hàng đã hoàn thành"
-            # completed_orders = Order.objects.filter(
-            #     user=user,
-            #     order_status__status_name="Đơn hàng đã hoàn thành"
-            # )
-            #
-            # # Lấy danh sách sản phẩm trong các đơn hàng này
-            # product_ids_in_completed_orders = OrderItem.objects.filter(
-            #     order__in=completed_orders
-            # ).values_list('product_id', flat=True)
-            #
-            # if int(product.id) not in product_ids_in_completed_orders:
-            #     return Response(
-            #         {"error": "Bạn chưa thể đánh giá sản phẩm này"},
-            #         status=status.HTTP_400_BAD_REQUEST
-            #     )
+            # Kiểm tra đơn hàng của user với trạng thái "Đơn hàng đã hoàn thành"
+            completed_orders = Order.objects.filter(
+                user=user,
+                order_status__status_name="Đơn hàng đã hoàn thành"
+            )
+
+            # Lấy danh sách sản phẩm trong các đơn hàng này
+            product_ids_in_completed_orders = OrderItem.objects.filter(
+                order__in=completed_orders
+            ).values_list('product_id', flat=True)
+
+            if int(product.id) not in product_ids_in_completed_orders:
+                return Response(
+                    {"error": "Bạn chưa thể đánh giá sản phẩm này"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
             c = Comment.objects.create(content=content, product=product, rating=rating,
                                        user=request.user)
             images = request.FILES.getlist('images')
@@ -456,7 +465,7 @@ class StoreViewSet(viewsets.ModelViewSet):
         orders = orders.order_by('-created_at')
 
         # Phân trang
-        paginator = OrderPaginator()  # Sử dụng lại ProductPaginator
+        paginator = OrderPaginator()
         page = paginator.paginate_queryset(orders, request)
 
         if page is not None:
@@ -846,6 +855,156 @@ class OrderViewSet(viewsets.ModelViewSet):
                 'detail': 'Không thể cập nhật trạng thái này.'
             }, status=status.HTTP_400_BAD_REQUEST)
 
+    @action(detail=True, methods=['post'], url_path='create-payos-payment')
+    def create_payos_payment(self, request, pk=None):
+        """
+        API tạo PayOS payment link
+        """
+        try:
+            order = self.get_object()
+
+            # Kiểm tra quyền sở hữu
+            if order.user != request.user:
+                return Response({'error': 'Không có quyền truy cập đơn hàng này'},
+                                status=status.HTTP_403_FORBIDDEN)
+
+            # Kiểm tra đã thanh toán chưa
+            if order.is_paid:
+                return Response({'error': 'Đơn hàng đã được thanh toán'},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            # Tạo PayOS payment
+            payos_service = PayOSService()
+            result = payos_service.create_payment_link(order)
+
+            if result['success']:
+                # Lưu thông tin PayOS vào database
+                order.payos_order_code = result['order_code']
+                order.payos_payment_url = result['payment_url']
+                order.payos_qr_code = result.get('qr_code', '')
+                order.payos_status = 'pending'
+                order.save()
+
+                return Response({
+                    'success': True,
+                    'order_code': order.order_code,
+                    'payment_url': result['payment_url'],
+                    'qr_code': result.get('qr_code', ''),
+                    'amount': float(order.total_cost),
+                    'payos_order_code': result['order_code'],
+                    'expires_in': 15,  # 15 phút
+                    'instructions': [
+                        'Click vào "Thanh toán ngay" để mở PayOS',
+                        'Chọn ngân hàng và phương thức thanh toán',
+                        'Hoặc quét mã QR bằng app ngân hàng',
+                        'Xác nhận thanh toán',
+                        'Hệ thống sẽ tự động cập nhật trạng thái'
+                    ]
+                })
+            else:
+                return Response({'error': result['error']},
+                                status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        except Exception as e:
+            return Response({'error': str(e)},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    # @action(detail=True, methods=['get'], url_path='check-payment-status')
+    # def check_payment_status(self, request, pk=None):
+    #     """
+    #     API kiểm tra trạng thái thanh toán
+    #     """
+    #     try:
+    #         order = self.get_object()
+    #
+    #         if order.user != request.user:
+    #             return Response({'error': 'Không có quyền truy cập'},
+    #                             status=status.HTTP_403_FORBIDDEN)
+    #
+    #         if not order.payos_order_code:
+    #             return Response({'error': 'Đơn hàng chưa có PayOS payment'},
+    #                             status=status.HTTP_400_BAD_REQUEST)
+    #
+    #         # Lấy thông tin từ PayOS
+    #         payos_service = PayOSService()
+    #         result = payos_service.get_payment_info(order.payos_order_code)
+    #
+    #         if result['success']:
+    #             payment_data = result['data']
+    #
+    #             # Cập nhật trạng thái nếu đã thanh toán
+    #             if payment_data.status == 'PAID' and not order.is_paid:
+    #                 order.is_paid = True
+    #                 order.paid_at = timezone.now()
+    #                 order.payos_status = 'paid'
+    #                 order.payos_transaction_id = payment_data.transactions[
+    #                     0].reference if payment_data.transactions else ''
+    #                 order.payos_paid_at = timezone.now()
+    #
+    #                 # Tính hoa hồng
+    #                 order.calculate_commission()
+    #
+    #             return Response({
+    #                 'success': True,
+    #                 'is_paid': order.is_paid,
+    #                 'payos_status': order.payos_status,
+    #                 'payment_info': {
+    #                     'amount': payment_data.amount,
+    #                     'status': payment_data.status,
+    #                     'created_at': payment_data.createdAt,
+    #                     'paid_at': order.payos_paid_at.isoformat() if order.payos_paid_at else None
+    #                 }
+    #             })
+    #         else:
+    #             return Response({'error': result['error']},
+    #                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    #
+    #     except Exception as e:
+    #         return Response({'error': str(e)},
+    #                         status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=True, methods=['post'], url_path='update-payos-status')
+    def update_payos_status(self, request, pk=None):
+        """
+        API cập nhật trạng thái PayOS cho order
+        """
+        try:
+            order = self.get_object()
+
+            if order.user != request.user:
+                return Response({'error': 'Không có quyền truy cập'},
+                                status=status.HTTP_403_FORBIDDEN)
+
+            # Cập nhật các field PayOS
+            order.is_paid = request.data.get('is_paid', False)
+            if request.data.get('paid_at'):
+                order.paid_at = request.data.get('paid_at')
+            if request.data.get('payos_status'):
+                order.payos_status = request.data.get('payos_status')
+            if request.data.get('payos_paid_at'):
+                order.payos_paid_at = request.data.get('payos_paid_at')
+            if request.data.get('payos_transaction_id'):
+                order.payos_transaction_id = request.data.get('payos_transaction_id')
+            if request.data.get('payos_order_code'):
+                order.payos_order_code = request.data.get('payos_order_code')
+
+            order.save()
+
+            # Tính hoa hồng nếu đã thanh toán
+            if order.is_paid:
+                order.calculate_commission()
+
+            serializer = OrderSerializer(order, context={'request': request})
+            return Response({
+                'success': True,
+                'message': 'Cập nhật trạng thái PayOS thành công',
+                'order': serializer.data
+            })
+
+        except Exception as e:
+            return Response({'error': str(e)},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 class OrderStausViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = OrderStatus.objects.all()
     serializer_class = OrderStatusSerializer
@@ -868,3 +1027,127 @@ class VoucherViewSet(viewsets.ViewSet, generics.CreateAPIView,generics.ListAPIVi
         if self.action in ['list']:
             return [permissions.IsAuthenticated()]
         return [IsAdmin]
+
+
+class ShipFeeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        """
+        Tính phí ship dựa trên delivery_info_id và 1 product_id (vì tất cả sản phẩm cùng store)
+        """
+        delivery_info_id = request.data.get("delivery_info_id")
+        product_id = request.data.get("product_id")  # Chỉ cần 1 product_id
+
+        if not delivery_info_id:
+            return Response(
+                {"error": "Thiếu delivery_info_id"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not product_id:
+            return Response(
+                {"error": "Thiếu product_id"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            # Lấy thông tin giao hàng của user
+            delivery_info = DeliveryInformation.objects.get(
+                id=delivery_info_id,
+                user=request.user
+            )
+            end_address = delivery_info.address
+
+            # Lấy sản phẩm để xác định store
+            product = Product.objects.get(id=product_id)
+            store = product.store
+            start_address = store.address
+
+            if not start_address or not end_address:
+                return Response(
+                    {"error": "Thiếu thông tin địa chỉ cửa hàng hoặc địa chỉ giao hàng"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        except DeliveryInformation.DoesNotExist:
+            return Response(
+                {"error": "Thông tin giao hàng không tồn tại hoặc không thuộc về bạn"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except Product.DoesNotExist:
+            return Response(
+                {"error": "Sản phẩm không tồn tại"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Tính khoảng cách
+        api_key = settings.MAPBOX_API_KEY
+        distance_km = get_directions_distance(start_address, end_address, api_key)
+
+        if distance_km is None:
+            return Response(
+                {"error": "Không tính được khoảng cách, vui lòng thử lại"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Tính phí ship
+        fee = ship_fee_cost(distance_km)
+
+        return Response(
+            {
+                "ship_fee": fee,
+                "distance_km": round(distance_km, 2)
+            },
+            status=status.HTTP_200_OK,
+        )
+#
+# # PayOS Webhook endpoint
+# @csrf_exempt
+# def payos_webhook(request):
+#     """
+#     Webhook endpoint để nhận thông báo từ PayOS
+#     """
+#     if request.method != 'POST':
+#         return JsonResponse({'error': 'Method not allowed'}, status=405)
+#
+#     try:
+#         webhook_data = json.loads(request.body)
+#
+#         # Verify webhook
+#         payos_service = PayOSService()
+#         verify_result = payos_service.verify_webhook(webhook_data)
+#
+#         if not verify_result['success']:
+#             return JsonResponse({'error': 'Invalid webhook'}, status=400)
+#
+#         # Lấy thông tin từ webhook
+#         payment_data = verify_result['data']
+#         order_code = payment_data.orderCode
+#
+#         # Tìm order
+#         try:
+#             order = Order.objects.get(payos_order_code=order_code)
+#         except Order.DoesNotExist:
+#             return JsonResponse({'error': 'Order not found'}, status=404)
+#
+#         # Cập nhật trạng thái thanh toán
+#         if payment_data.code == '00':  # Thành công
+#             order.is_paid = True
+#             order.paid_at = timezone.now()
+#             order.payos_status = 'paid'
+#             order.payos_transaction_id = payment_data.data.transactionDateTime
+#             order.payos_paid_at = timezone.now()
+#
+#             # Tính hoa hồng
+#             order.calculate_commission()
+#
+#         elif payment_data.code == '01':  # Hủy
+#             order.payos_status = 'cancelled'
+#
+#         order.save()
+#
+#         return JsonResponse({'success': True})
+#
+#     except Exception as e:
+#         return JsonResponse({'error': str(e)}, status=500)

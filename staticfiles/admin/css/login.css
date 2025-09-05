@@ -1,0 +1,150 @@
+/* ========== LOGIN PAGE STYLING ========== */
+body.login {
+    background: linear-gradient(135deg, #2c5f2d 0%, #97bc62 100%);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.login #container {
+    width: 100%;
+    max-width: 450px;
+    margin: 50px auto;
+    padding: 0;
+    background: none;
+}
+
+.login #content {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    padding: 0;
+    overflow: hidden;
+}
+
+.login #content-main {
+    width: 100%;
+    padding: 40px;
+}
+
+.login .form-row {
+    margin-bottom: 25px;
+}
+
+.login .form-row label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #2c5f2d;
+    font-size: 14px;
+}
+
+.login .form-row input[type="text"],
+.login .form-row input[type="password"] {
+    width: 100%;
+    padding: 12px 15px;
+    border: 2px solid #e1e8e1;
+    border-radius: 8px;
+    font-size: 16px;
+    transition: all 0.3s ease;
+    box-sizing: border-box;
+}
+
+.login .form-row input[type="text"]:focus,
+.login .form-row input[type="password"]:focus {
+    border-color: #2c5f2d;
+    box-shadow: 0 0 0 3px rgba(44, 95, 45, 0.1);
+    outline: none;
+}
+
+.login .submit-row {
+    margin-top: 30px;
+    text-align: center;
+}
+
+.login .submit-row input[type="submit"] {
+    width: 100%;
+    background: linear-gradient(135deg, #2c5f2d 0%, #4a7c59 100%);
+    color: white;
+    border: none;
+    padding: 15px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.login .submit-row input[type="submit"]:hover {
+    background: linear-gradient(135deg, #4a7c59 0%, #2c5f2d 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(44, 95, 45, 0.4);
+}
+
+/* Login title */
+.login #header {
+    background: #2c5f2d;
+    color: white;
+    padding: 20px 40px;
+    margin: 0;
+    text-align: center;
+}
+
+.login #header h1 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 300;
+}
+
+.login #header h1 a {
+    color: white;
+    text-decoration: none;
+}
+
+/* Error messages */
+.login .errornote {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 25px;
+    font-weight: 500;
+}
+
+/* Help text */
+.login .help_text {
+    font-size: 12px;
+    color: #666;
+    margin-top: 5px;
+    line-height: 1.4;
+}
+
+/* Footer */
+.login #footer {
+    text-align: center;
+    margin-top: 30px;
+    padding: 20px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 14px;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+    .login #container {
+        margin: 20px;
+        max-width: none;
+    }
+
+    .login #content-main {
+        padding: 30px 25px;
+    }
+
+    .login #header {
+        padding: 15px 25px;
+    }
+
+    .login #header h1 {
+        font-size: 20px;
+    }
+}

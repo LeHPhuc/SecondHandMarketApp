@@ -20,6 +20,8 @@ import MyUserReducer from './reducers/MyUserReducer'
 import Profile from './components/Profile';
 import { MyUserContext, MyDispatchContext } from './configs/Context';
 import cookie from "react-cookies";  
+import PaymentSuccess from './components/PaymentSuccess';
+import PaymentCancel from './components/PaymentCancel';
 
 const { Content } = Layout;
 
@@ -55,6 +57,10 @@ function App() {
                   <Route path='/storeorders' element={<StoreOrders />} />
                   <Route path='/create-store' element={<CreateStore />} />
                   <Route path='/profile' element={<Profile />} />
+                  <Route path="/payment-success" element={<PaymentSuccess />} />
+                  <Route path="/payment-success/:orderId" element={<PaymentSuccess />} />
+                  <Route path="/payment-cancel" element={<PaymentCancel />} />
+                  <Route path="/payment-cancel/:orderId" element={<PaymentCancel />} />
                   {/* Thêm các route khác nếu cần */}
                 </Routes>
               </Content>

@@ -15,7 +15,6 @@ class User(AbstractUser):
     email = models.EmailField(unique=True)
     password = models.CharField(max_length=128)
     phone_number = models.CharField(max_length=15, blank=True, null=True)
-    payment_account = models.CharField(max_length=255, blank=True, null=True)
     avatar = CloudinaryField('avatar', blank=True, null=True)
     username = models.CharField(max_length=128, unique=True, null=True,blank=True)
     @property
@@ -61,9 +60,6 @@ class Store(models.Model):
     avatar = CloudinaryField('avatar', blank=True, null=True)
     created_date = models.DateTimeField(auto_now_add=True)
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='store')
-    bank_name = models.CharField(max_length=255, null=True, blank=True)
-    bank_account_name = models.CharField(max_length=255, null=True, blank=True)
-    bank_account_number = models.CharField(max_length=100, null=True, blank=True)
 
     @property
     def owner(self):
@@ -159,6 +155,26 @@ class Order(models.Model):
     delivery_info = models.ForeignKey(
         DeliveryInformation, on_delete=models.SET_NULL, null=True, blank=True, related_name='orders'
     )
+    # PayOS Payment fields
+    payos_order_code = models.BigIntegerField(blank=True, null=True, verbose_name="PayOS Order Code")
+    payos_payment_url = models.URLField(blank=True, null=True, verbose_name="PayOS Payment URL")
+    payos_qr_code = models.URLField(blank=True, null=True, verbose_name="PayOS QR Code")
+    payos_transaction_id = models.CharField(max_length=100, blank=True, null=True, verbose_name="PayOS Transaction ID")
+    payos_status = models.CharField(
+        max_length=20,
+        choices=[
+            ('pending', 'Chờ thanh toán'),
+            ('paid', 'Đã thanh toán'),
+            ('cancelled', 'Đã hủy'),
+            ('expired', 'Hết hạn'),
+        ],
+        default='pending',
+        verbose_name="PayOS Status"
+    )
+    payos_paid_at = models.DateTimeField(blank=True, null=True, verbose_name="PayOS Paid At")
+
+    def __str__(self):
+        return f"{self.order_code} - {self.get_payment_method_display()}"
 
     def generate_order_code(self):
         from django.utils.timezone import now
@@ -268,16 +284,3 @@ class Voucher(models.Model):
                 self.start_date <= now <= self.expiry_date and
                 self.used_count < self.quantity
         )
-class Transaction(models.Model):
-    order = models.OneToOneField(Order, on_delete=models.CASCADE)
-    vnp_txn_ref = models.CharField(max_length=100)  # VNPay transaction code
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
-    pay_date = models.DateTimeField()
-    platform_fee = models.DecimalField(max_digits=10, decimal_places=2)
-    store_revenue = models.DecimalField(max_digits=10, decimal_places=2)
-class WithdrawalRequest(models.Model):
-    store = models.ForeignKey(Store, on_delete=models.CASCADE)
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
-    status = models.CharField(max_length=20, choices=[("PENDING", "Pending"), ("PAID", "Paid"), ("REJECTED", "Rejected")])
-    created_at = models.DateTimeField(auto_now_add=True)
-    processed_at = models.DateTimeField(null=True, blank=True)

@@ -1,3 +1,5 @@
+
+
 from multiprocessing.resource_tracker import register
 from django.urls import path,include
 from  . import  views
@@ -13,6 +15,7 @@ r.register('order', views.OrderViewSet)
 r.register('order-status', views.OrderStausViewSet)
 r.register('delivery-information', views.DeliveryInformationViewSet)
 r.register('voucher', views.VoucherViewSet)
+
 urlpatterns = [
     path('', include(r.urls)),
     path('register/', views.RegisterView.as_view(), name='register'),
@@ -21,4 +24,5 @@ urlpatterns = [
     path('my-cart/', views.CartGroupedView.as_view(), name='my-cart'),
     path('addQuantity-productCart/', views.UpdateCartItemView.as_view(), name='addQuantity-productCart'),
     path('delete-productCart/', views.RemoveCartItemView.as_view(), name='delete-productCart'),
+    path('shipfee/', views.ShipFeeView.as_view(), name='shipfee'),
 ]

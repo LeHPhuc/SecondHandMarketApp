@@ -22,7 +22,9 @@ export const endpoints = {
   addquantityproductcart:"/addQuantity-productCart/",
 
   // order: "order/",
-  order: "order/",                               // Tạo đơn hàng mới
+  order: "order/",    
+  deleteOrder:"order/{id}/",  
+  updateOrder:"order/{id}/",                         // Cập nhật đơn hàng
   myorders: "order/my-orders/",              // Xem đơn hàng của customer
   updatecustomerorderstatus: "order/{id}/update-status/", // Customer cập nhật trạng thái
 
@@ -40,6 +42,12 @@ export const endpoints = {
   voucher: "/voucher/",
   deliveryInfo:"/delivery-information/",
   updateDeliveryInfo: "/delivery-information/{id}/",
+  calculateShipFee:"/shipfee/",
+  
+  // PayOS Payment endpoints
+  createPayOSPayment: "order/{id}/create-payos-payment/",
+  updatePayOSStatus: "order/{id}/update-payos-status/",
+  
 };
 
 export const authAPIs = ()  => {

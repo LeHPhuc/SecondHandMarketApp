@@ -1,0 +1,30 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<h1>{{ title }}</h1>
+<table class="adminlist">
+  <thead>
+    <tr>
+      <th>#</th><th>Ảnh</th><th>Tên</th><th>Cửa hàng</th><th>Avg Rating</th><th>Số ĐG</th><th>Giá</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for p in products %}
+    {% with img=p.images.first %}
+    <tr>
+      <td>{{ forloop.counter }}</td>
+      <td>
+        {% if img and img.image %}
+          <img src="{{ img.image.url }}" style="width:55px;height:55px;object-fit:cover;border-radius:4px;" />
+        {% else %}—{% endif %}
+      </td>
+      <td><a href="{% url 'admin:EcoReMartApp_product_change' p.id %}">{{ p.name }}</a></td>
+      <td>{{ p.store.name }}</td>
+      <td>{{ p.avg_rating|floatformat:2 }}</td>
+      <td>{{ p.rating_count }}</td>
+      <td>{{ p.price }}</td>
+    </tr>
+    {% endwith %}
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
