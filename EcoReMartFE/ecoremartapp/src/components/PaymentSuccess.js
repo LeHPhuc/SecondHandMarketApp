@@ -45,6 +45,16 @@ const PaymentSuccess = () => {
                         
                         if (updateResponse.data && updateResponse.data.order) {
                             setOrderDetails(updateResponse.data.order);
+                            
+                            // Gửi email xác nhận đơn hàng sau khi cập nhật thành công
+                            try {
+                                const sendMailEndpoint = endpoints.sendOrderMail.replace('{order_id}', currentOrderId);
+                                await authAPIs().post(sendMailEndpoint);
+                                console.log('Email xác nhận đơn hàng đã được gửi thành công');
+                            } catch (emailError) {
+                                console.warn('Không thể gửi email xác nhận:', emailError.message);
+                                // Không throw error vì email chỉ là tính năng phụ
+                            }
                         } else {
                             throw new Error('Custom action failed');
                         }
@@ -55,6 +65,16 @@ const PaymentSuccess = () => {
                             ...updateData
                         };
                         setOrderDetails(completeOrderDetails);
+                        
+                        // Vẫn cố gắng gửi email ngay cả khi fallback
+                        try {
+                            const sendMailEndpoint = endpoints.sendOrderMail.replace('{order_id}', currentOrderId);
+                            await authAPIs().post(sendMailEndpoint);
+                            console.log('Email thông báo đơn hàng đã được gửi thành công');
+                        } catch (emailError) {
+                            console.warn('Không thể gửi email thông báo:', emailError.message);
+                            // Không throw error vì email chỉ là tính năng phụ
+                        }
                     }
                     
                     // Dọn dẹp localStorage

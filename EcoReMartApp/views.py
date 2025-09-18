@@ -24,8 +24,11 @@ from EcoReMart import settings
 import pandas as pd
 from django.utils import timezone
 from datetime import datetime
+
+from .async_email import send_async_email
+from .email_service import send_order_success_email, send_order_notification_to_store
 from .payos_service import PayOSService
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status
 from django.views.decorators.csrf import csrf_exempt
@@ -132,9 +135,6 @@ class LoginView(APIView):
     authentication_classes = []
     serializer_class = UserSerializer
     def post(self, request):
-        # id_token = request.data.get('idToken')
-        # if not id_token:
-        #     return Response({"error": "Thiếu idToken"}, status=status.HTTP_400_BAD_REQUEST)
         auth_header = request.META.get("HTTP_AUTHORIZATION")
         if not auth_header or not auth_header.startswith("Bearer "):
             return Response({"error": "Thiếu Authorization header hoặc sai định dạng"},
@@ -145,8 +145,8 @@ class LoginView(APIView):
             decoded_token = firebase_auth.verify_id_token(id_token)
         except Exception as e:
             return Response({"error": "Token không hợp lệ", "details": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
-        # if not decoded_token.get("email_verified", False):
-        #     return Response({"error": "Email chưa được xác minh"}, status=status.HTTP_403_FORBIDDEN)
+        if not decoded_token.get("email_verified", False):
+            return Response({"error": "Email chưa được xác minh"}, status=status.HTTP_403_FORBIDDEN)
         uid = decoded_token.get("uid")
         if not uid:
             return Response({"error": "Token không có uid"}, status=status.HTTP_401_UNAUTHORIZED)
@@ -257,19 +257,6 @@ class ProductViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIV
             serializer = ProductSerializer(products, many=True, context={'request': request})
         return Response(serializer.data)
 
-    # @action(detail=True, methods=['get'], url_path='my-products')
-    # def retrieve_my_product(self, request, pk=None):
-    #     user_store = getattr(request.user, 'store', None)
-    #     if not user_store:
-    #         return Response({'error': 'User chưa có store'}, status=status.HTTP_400_BAD_REQUEST)
-    #
-    #     try:
-    #         product = Product.objects.get(pk=pk, store=user_store)
-    #     except Product.DoesNotExist:
-    #         return Response({'error': 'Không tìm thấy sản phẩm hoặc không thuộc store của bạn'}, status=404)
-    #
-    #     serializer = ProductDetailSerializer(product, context={'request': request})
-    #     return Response(serializer.data)
 
     @action(detail=True, methods=['put', 'patch'], url_path='update-my-product')
     def update_my_product(self, request, pk=None):
@@ -778,6 +765,39 @@ class OrderViewSet(viewsets.ModelViewSet):
                 voucher.order_used.add(order)
                 voucher.save()
         serializer = self.get_serializer(order)
+
+        # context chung
+        items_context = [
+            {"product_name": oi.product.name, "quantity": oi.quantity, "price": oi.product.price}
+            for oi in order.order_items.all()
+        ]
+        context = {
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "user_email": user.email,
+            "order_code": order.order_code,
+            "total_cost": order.total_cost,
+            "items": items_context,
+            "store_name": store.name,
+        }
+
+        if payment_method == "cash payment":
+            # gửi mail cho khách
+            send_async_email(
+                subject=f"Xác nhận đơn hàng #{order.order_code}",
+                template_name="emails/order_success.html",
+                context=context,
+                recipient_list=[user.email]
+            )
+
+            # gửi mail cho chủ cửa hàng
+            send_async_email(
+                subject=f"Đơn hàng mới #{order.order_code}",
+                template_name="emails/order_notify_store.html",
+                context=context,
+                recipient_list=[store.owner.email]
+            )
+
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=['get'], url_path='my-orders', permission_classes=[IsAuthenticated])
@@ -908,60 +928,6 @@ class OrderViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({'error': str(e)},
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    # @action(detail=True, methods=['get'], url_path='check-payment-status')
-    # def check_payment_status(self, request, pk=None):
-    #     """
-    #     API kiểm tra trạng thái thanh toán
-    #     """
-    #     try:
-    #         order = self.get_object()
-    #
-    #         if order.user != request.user:
-    #             return Response({'error': 'Không có quyền truy cập'},
-    #                             status=status.HTTP_403_FORBIDDEN)
-    #
-    #         if not order.payos_order_code:
-    #             return Response({'error': 'Đơn hàng chưa có PayOS payment'},
-    #                             status=status.HTTP_400_BAD_REQUEST)
-    #
-    #         # Lấy thông tin từ PayOS
-    #         payos_service = PayOSService()
-    #         result = payos_service.get_payment_info(order.payos_order_code)
-    #
-    #         if result['success']:
-    #             payment_data = result['data']
-    #
-    #             # Cập nhật trạng thái nếu đã thanh toán
-    #             if payment_data.status == 'PAID' and not order.is_paid:
-    #                 order.is_paid = True
-    #                 order.paid_at = timezone.now()
-    #                 order.payos_status = 'paid'
-    #                 order.payos_transaction_id = payment_data.transactions[
-    #                     0].reference if payment_data.transactions else ''
-    #                 order.payos_paid_at = timezone.now()
-    #
-    #                 # Tính hoa hồng
-    #                 order.calculate_commission()
-    #
-    #             return Response({
-    #                 'success': True,
-    #                 'is_paid': order.is_paid,
-    #                 'payos_status': order.payos_status,
-    #                 'payment_info': {
-    #                     'amount': payment_data.amount,
-    #                     'status': payment_data.status,
-    #                     'created_at': payment_data.createdAt,
-    #                     'paid_at': order.payos_paid_at.isoformat() if order.payos_paid_at else None
-    #                 }
-    #             })
-    #         else:
-    #             return Response({'error': result['error']},
-    #                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    #
-    #     except Exception as e:
-    #         return Response({'error': str(e)},
-    #                         status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=True, methods=['post'], url_path='update-payos-status')
     def update_payos_status(self, request, pk=None):
@@ -1101,53 +1067,47 @@ class ShipFeeView(APIView):
             },
             status=status.HTTP_200_OK,
         )
-#
-# # PayOS Webhook endpoint
-# @csrf_exempt
-# def payos_webhook(request):
-#     """
-#     Webhook endpoint để nhận thông báo từ PayOS
-#     """
-#     if request.method != 'POST':
-#         return JsonResponse({'error': 'Method not allowed'}, status=405)
-#
-#     try:
-#         webhook_data = json.loads(request.body)
-#
-#         # Verify webhook
-#         payos_service = PayOSService()
-#         verify_result = payos_service.verify_webhook(webhook_data)
-#
-#         if not verify_result['success']:
-#             return JsonResponse({'error': 'Invalid webhook'}, status=400)
-#
-#         # Lấy thông tin từ webhook
-#         payment_data = verify_result['data']
-#         order_code = payment_data.orderCode
-#
-#         # Tìm order
-#         try:
-#             order = Order.objects.get(payos_order_code=order_code)
-#         except Order.DoesNotExist:
-#             return JsonResponse({'error': 'Order not found'}, status=404)
-#
-#         # Cập nhật trạng thái thanh toán
-#         if payment_data.code == '00':  # Thành công
-#             order.is_paid = True
-#             order.paid_at = timezone.now()
-#             order.payos_status = 'paid'
-#             order.payos_transaction_id = payment_data.data.transactionDateTime
-#             order.payos_paid_at = timezone.now()
-#
-#             # Tính hoa hồng
-#             order.calculate_commission()
-#
-#         elif payment_data.code == '01':  # Hủy
-#             order.payos_status = 'cancelled'
-#
-#         order.save()
-#
-#         return JsonResponse({'success': True})
-#
-#     except Exception as e:
-#         return JsonResponse({'error': str(e)}, status=500)
+
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def send_online_order_mail(request, order_id):
+    user = request.user
+    try:
+        order = Order.objects.get(id=order_id, user=request.user)
+    except Order.DoesNotExist:
+        return Response({"error": "Đơn hàng không tồn tại"}, status=status.HTTP_404_NOT_FOUND)
+
+    # Chuẩn bị context cho email
+    items_context = [
+        {"product_name": oi.product.name, "quantity": oi.quantity, "price": oi.product.price}
+        for oi in order.order_items.all()
+    ]
+    context = {
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "user_email": order.user.email,
+        "order_code": order.order_code,
+        "total_cost": order.total_cost,
+        "items": items_context,
+        "store_name": order.store.name,
+    }
+
+    # Gửi mail cho khách
+    send_async_email(
+        subject=f"Xác nhận thanh toán đơn hàng #{order.order_code}",
+        template_name="emails/order_success.html",
+        context=context,
+        recipient_list=[order.user.email],
+    )
+
+    # Gửi mail cho store owner
+    send_async_email(
+        subject=f"Đơn hàng mới #{order.order_code}",
+        template_name="emails/order_notify_store.html",
+        context=context,
+        recipient_list=[order.store.owner.email],
+    )
+
+    return Response({"message": "Email đã được gửi thành công"}, status=status.HTTP_200_OK)

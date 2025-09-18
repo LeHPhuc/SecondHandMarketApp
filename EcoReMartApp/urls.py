@@ -5,6 +5,8 @@ from django.urls import path,include
 from  . import  views
 from rest_framework import routers
 
+from .views import send_online_order_mail
+
 r= routers.DefaultRouter()
 r.register('category', views.CategoryViewSet)
 r.register('product', views.ProductViewSet)
@@ -25,4 +27,5 @@ urlpatterns = [
     path('addQuantity-productCart/', views.UpdateCartItemView.as_view(), name='addQuantity-productCart'),
     path('delete-productCart/', views.RemoveCartItemView.as_view(), name='delete-productCart'),
     path('shipfee/', views.ShipFeeView.as_view(), name='shipfee'),
+    path("send-online-mail/<int:order_id>/", send_online_order_mail, name="send_online_order_mail"),
 ]

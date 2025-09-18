@@ -47,6 +47,7 @@ export const endpoints = {
   // PayOS Payment endpoints
   createPayOSPayment: "order/{id}/create-payos-payment/",
   updatePayOSStatus: "order/{id}/update-payos-status/",
+  sendOrderMail: "/send-online-mail/{order_id}/"
   
 };
 

@@ -1192,13 +1192,10 @@ const CreateOrder = () => {
       >
         <div className="delivery-modal-content">
           <Alert
-            message="Lưu ý quan trọng"
+            message="Lưu ý"
             description={
               <div>
                 <p>• Thông tin giao hàng phải chính xác và đầy đủ</p>
-                <p>• Địa chỉ sẽ được xác thực bởi hệ thống Mapbox</p>
-                <p>• Số điện thoại phải có đúng 10 chữ số</p>
-                <p>• Hệ thống sẽ tự động liên kết với tài khoản của bạn</p>
               </div>
             }
             type="info"

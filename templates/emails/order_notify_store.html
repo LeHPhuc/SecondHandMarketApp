@@ -1,0 +1,12 @@
+<h2>Xin chào {{ store_name }}</h2>
+<p>Bạn vừa có đơn hàng mới 🎉</p>
+
+<p><b>Mã đơn hàng:</b> {{ order_code }}</p>
+<p><b>Khách hàng:</b> {{ first_name }} {{last_name}} ({{ user_email }})</p>
+<p><b>Tổng tiền:</b> {{ total_cost }} VND</p>
+<h3>Chi tiết sản phẩm:</h3>
+<ul>
+  {% for item in items %}
+    <li>{{ item.product_name }} - SL: {{ item.quantity }} - Giá: {{ item.price }} VND</li>
+  {% endfor %}
+</ul>

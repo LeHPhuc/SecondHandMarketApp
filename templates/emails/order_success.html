@@ -1,0 +1,12 @@
+<h2>Xin chào {{ username }}</h2>
+<p>Cảm ơn bạn đã đặt hàng tại <b>EcoReMart</b> 🎉</p>
+
+<p><b>Mã đơn hàng:</b> {{ order_code }}</p>
+<p><b>Tổng tiền:</b> {{ total_cost }} VND</p>
+
+<h3>Chi tiết sản phẩm:</h3>
+<ul>
+  {% for item in items %}
+    <li>{{ item.product_name }} - SL: {{ item.quantity }} - Giá: {{ item.price }} VND</li>
+  {% endfor %}
+</ul>
